@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables (API keys)
+.env
+*.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (large files — track with Git LFS or exclude)
+data/raw/tomtom_traffic.csv
+data/raw/hcm_osrm_dataset.csv
+
+# Model checkpoints (large binary)
+data/results/*.pt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.synctex.gz
+paper/_minted*/

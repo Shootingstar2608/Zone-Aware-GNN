@@ -1,0 +1,11 @@
+torch
+torch_geometric
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+statsmodels
+jupyter
+requests
+python-dotenv

@@ -1,0 +1,18 @@
+node,commercial,residential,industrial,school,university,hospital,transport,park
+Ben Thanh Market,1,0,0,1,0,1,1,0
+District 1,1,1,0,0,0,1,1,1
+District 3,1,1,0,1,0,1,0,1
+District 5,1,1,1,1,1,1,0,0
+Binh Thanh,1,1,0,1,0,0,0,0
+Tan Son Nhat Airport,1,0,0,0,0,0,1,0
+Landmark 81,1,1,0,0,0,0,0,0
+Thu Duc,1,1,0,1,1,0,1,0
+Linh Trung,0,1,1,0,1,0,0,0
+Suoi Tien,1,0,0,0,0,0,1,1
+High Tech Park,0,0,1,0,0,0,0,0
+VNU HCM,0,1,0,1,1,0,0,1
+Hang Xanh,1,1,0,1,0,0,1,0
+Saigon Bridge,0,1,0,0,0,0,1,0
+Eastern Bus Station,1,1,0,0,0,0,1,0
+Thu Thiem Tunnel,1,1,0,0,0,0,1,0
+Pham Van Dong,1,1,0,1,0,0,1,0

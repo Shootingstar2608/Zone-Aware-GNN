@@ -1,0 +1,45 @@
+{
+  "N": 17,
+  "K": 8,
+  "F": 4,
+  "T_in": 12,
+  "T_out": 3,
+  "S": 658,
+  "nodes": [
+    "Ben Thanh Market",
+    "Binh Thanh",
+    "District 1",
+    "District 3",
+    "District 5",
+    "Eastern Bus Station",
+    "Hang Xanh",
+    "High Tech Park",
+    "Landmark 81",
+    "Linh Trung",
+    "Pham Van Dong",
+    "Saigon Bridge",
+    "Suoi Tien",
+    "Tan Son Nhat Airport",
+    "Thu Duc",
+    "Thu Thiem Tunnel",
+    "VNU HCM"
+  ],
+  "feature_names": [
+    "congestion_ratio",
+    "traffic_delay_s",
+    "travel_time_s",
+    "ff_ratio"
+  ],
+  "zone_types": [
+    "commercial",
+    "residential",
+    "industrial",
+    "school",
+    "university",
+    "hospital",
+    "transport",
+    "park"
+  ],
+  "has_tomtom": true,
+  "has_zones": true
+}
