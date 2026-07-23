@@ -24,6 +24,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from models.zone_aware_gnn import ZoneAwareAHGNN
+from models.time_zone_aware_gnn import TimeZoneAwareAHGNN
 from models.ah_gnn import AH_GNN
 from models.baselines import LSTMBaseline, GCNGRUBaseline, STGCNBaseline
 
@@ -55,6 +56,7 @@ ABLATION_VARIANTS = {
     "zone_concat":      (True,  False, False),  # Zone chỉ concat vào feature
     "zone_weight":      (True,  True,  False),  # + Zone-modulated W_v
     "zone_full":        (True,  True,  True),   # Full model (proposed)
+    "zone_full_tc":     (True,  True,  True),   # Full model + Time-Conditioned
 }
 
 # Tên baseline thêm — map về class
@@ -163,17 +165,30 @@ def build_model(variant_name, meta, use_zone_emb=True, use_zone_weight=True, use
         )
 
     # ── Zone-Aware variants ──
-    model = ZoneAwareAHGNN(
-        num_nodes       = N,
-        num_zones       = K,
-        in_channels     = in_ch,
-        hidden_channels = 64,
-        out_channels    = T_out,
-        node_embed_dim  = 32,
-        zone_embed_dim  = 16,
-        num_time_labels = 4,
-        num_layers      = 2,
-    )
+    if variant_name == "zone_full_tc":
+        model = TimeZoneAwareAHGNN(
+            num_nodes       = N,
+            num_zones       = K,
+            in_channels     = in_ch,
+            hidden_channels = 64,
+            out_channels    = T_out,
+            node_embed_dim  = 32,
+            zone_embed_dim  = 16,
+            num_time_labels = 4,
+            num_layers      = 2,
+        )
+    else:
+        model = ZoneAwareAHGNN(
+            num_nodes       = N,
+            num_zones       = K,
+            in_channels     = in_ch,
+            hidden_channels = 64,
+            out_channels    = T_out,
+            node_embed_dim  = 32,
+            zone_embed_dim  = 16,
+            num_time_labels = 4,
+            num_layers      = 2,
+        )
     model.use_zone_weight = use_zone_weight
     model.use_zone_adj    = use_zone_adj
     if not use_zone_emb:
