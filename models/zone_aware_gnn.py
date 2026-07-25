@@ -259,13 +259,13 @@ if __name__ == "__main__":
     K    = 8    # zone types
     B    = 32   # batch
     T_in = 12
-    F    = 4    # features (congestion, delay, travel_time, ff_ratio)
+    F_feat = 4    # features (congestion, delay, travel_time, ff_ratio)
     T_out = 3
 
     model = ZoneAwareAHGNN(
         num_nodes       = N,
         num_zones       = K,
-        in_channels     = T_in * F,
+        in_channels     = T_in * F_feat,
         hidden_channels = 64,
         out_channels    = T_out,
         node_embed_dim  = 32,
@@ -275,7 +275,7 @@ if __name__ == "__main__":
     )
 
     # Dummy inputs
-    X        = torch.randn(B, N, T_in * F)
+    X        = torch.randn(B, N, T_in * F_feat)
     Z        = torch.randint(0, 2, (N, K)).float()
     time_idx = torch.randint(0, 4, (B,))
     A_static = torch.rand(N, N)
