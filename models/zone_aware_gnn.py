@@ -233,8 +233,15 @@ class ZoneAwareAHGNN(nn.Module):
         # 1. Zone embedding (static per node)
         z_embed = self.zone_emb(Z)                     # (N, d_z)
 
+        # Check configuration flags (default to True)
+        use_zone_adj = getattr(self, "use_zone_adj", True)
+        use_zone_weight = getattr(self, "use_zone_weight", True)
+
+        z_embed_adj = z_embed if use_zone_adj else (z_embed * 0.0)
+        z_embed_conv = z_embed if use_zone_weight else (z_embed * 0.0)
+
         # 2. Dynamic zone-aware adjacency
-        A = self.adj_module(z_embed, time_idx, A_static)  # (B, N, N)
+        A = self.adj_module(z_embed_adj, time_idx, A_static)  # (B, N, N)
 
         # 3. Get node embedding from adj_module
         E = self.adj_module.E                          # (N, d_e)
@@ -242,7 +249,7 @@ class ZoneAwareAHGNN(nn.Module):
         # 4. Zone-modulated graph convolution
         H = X
         for conv in self.conv_layers:
-            H = conv(H, A, E, z_embed)                 # (B, N, hidden)
+            H = conv(H, A, E, z_embed_conv)                 # (B, N, hidden)
 
         # 5. Output prediction
         out = self.fc(H)                               # (B, N, T_out)

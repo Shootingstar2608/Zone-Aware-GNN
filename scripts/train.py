@@ -167,7 +167,7 @@ def build_model(
 
     # ── Tân: Time-conditioned discrete embedding ──
     if variant_name == "zone_full_tc":
-        return TimeZoneAwareAHGNN(
+        model = TimeZoneAwareAHGNN(
             num_nodes=N,
             num_zones=K,
             in_channels=in_ch,
@@ -178,10 +178,13 @@ def build_model(
             num_time_labels=4,
             num_layers=2,
         )
+        model.use_zone_weight = use_zone_weight
+        model.use_zone_adj = use_zone_adj
+        return model
 
     # ── Bảo: Sinusoidal time encoder ──
     if variant_name == "zone_full_sinc":
-        return SinusoidalZoneAwareAHGNN(
+        model = SinusoidalZoneAwareAHGNN(
             num_nodes=N,
             num_zones=K,
             in_channels=in_ch,
@@ -193,6 +196,9 @@ def build_model(
             num_layers=2,
             d_model=32,
         )
+        model.use_zone_weight = use_zone_weight
+        model.use_zone_adj = use_zone_adj
+        return model
 
     # ── Zone-Aware ablation variants (zone_concat, zone_weight, zone_full) ──
     model = ZoneAwareAHGNN(
@@ -218,7 +224,20 @@ def build_model(
 # ──────────────────────────────────────────────
 # MAIN
 # ──────────────────────────────────────────────
+import random
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
 def run_experiment(variant_name, meta, dataset_dict, ablation_cfg):
+    set_seed(42)
     use_zone_emb, use_zone_weight, use_zone_adj = ablation_cfg
 
     print(f"\n{'='*55}")
