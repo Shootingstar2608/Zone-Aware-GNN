@@ -114,18 +114,23 @@ class TimeZoneEmbedding(nn.Module):
     """
     Encode multi-hot zone vector Z[v] ∈ {0,1}^K → dense z̃[v] ∈ R^d_z
     Dùng nn.Embedding cho time (discrete).
+    Dùng cơ chế gating: z̃ = sigmoid(W_gate * t_emb) * MLP(Z)
+    để tránh representation collapse.
     """
 
     def __init__(self, num_zones: int, embed_dim: int, num_time_labels: int):
         super().__init__()
-        self.time_emb = nn.Embedding(num_time_labels, embed_dim)
-        fused_in = num_zones + embed_dim
-        self.net = nn.Sequential(
-            nn.Linear(fused_in, embed_dim * 2),
+        self.zone_mlp = nn.Sequential(
+            nn.Linear(num_zones, embed_dim * 2),
             nn.LayerNorm(embed_dim * 2),
             nn.ReLU(),
             nn.Linear(embed_dim * 2, embed_dim),
             nn.LayerNorm(embed_dim),
+        )
+        self.time_emb = nn.Embedding(num_time_labels, embed_dim)
+        self.gate_proj = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim),
+            nn.Sigmoid()
         )
 
     def forward(self, Z: torch.Tensor, time_idx: torch.Tensor) -> torch.Tensor:
@@ -134,12 +139,10 @@ class TimeZoneEmbedding(nn.Module):
         time_idx: (B,)
         → (B, N, d_z)
         """
-        B = time_idx.size(0)
-        N = Z.size(0)
-        Z_batch = Z.unsqueeze(0).expand(B, N, -1)
-        t_emb = self.time_emb(time_idx).unsqueeze(1).expand(B, N, -1)
-        fused = torch.cat([Z_batch, t_emb], dim=-1)
-        return self.net(fused)
+        z_static = self.zone_mlp(Z)
+        t_emb = self.time_emb(time_idx)
+        gate = self.gate_proj(t_emb)
+        return gate.unsqueeze(1) * z_static.unsqueeze(0)
 
 
 # ══════════════════════════════════════════════
@@ -150,9 +153,8 @@ class SinusoidalZoneEmbedding(nn.Module):
     """
     Giống TimeZoneEmbedding nhưng dùng SeasonalTimeEncoder
     thay vì nn.Embedding → encode thời gian liên tục hơn.
-
-    Kỳ vọng: cosine similarity giữa các zone khác nhau thấp hơn
-    so với TimeZoneEmbedding vì time encoding phân biệt tốt hơn.
+    Dùng cơ chế gating: z̃ = sigmoid(W_gate * t_enc) * MLP(Z)
+    để tránh representation collapse.
     """
 
     def __init__(
@@ -163,14 +165,17 @@ class SinusoidalZoneEmbedding(nn.Module):
         d_model: int = 32,
     ):
         super().__init__()
-        self.time_encoder = SeasonalTimeEncoder(embed_dim, d_model)
-        fused_in = num_zones + embed_dim
-        self.net = nn.Sequential(
-            nn.Linear(fused_in, embed_dim * 2),
+        self.zone_mlp = nn.Sequential(
+            nn.Linear(num_zones, embed_dim * 2),
             nn.LayerNorm(embed_dim * 2),
-            nn.GELU(),  # GELU thay ReLU — smooth hơn
+            nn.GELU(),
             nn.Linear(embed_dim * 2, embed_dim),
             nn.LayerNorm(embed_dim),
+        )
+        self.time_encoder = SeasonalTimeEncoder(embed_dim, d_model)
+        self.gate_proj = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim),
+            nn.Sigmoid()
         )
 
     def forward(self, Z: torch.Tensor, time_idx: torch.Tensor) -> torch.Tensor:
@@ -179,13 +184,10 @@ class SinusoidalZoneEmbedding(nn.Module):
         time_idx: (B,)
         → (B, N, d_z)
         """
-        B = time_idx.size(0)
-        N = Z.size(0)
-        Z_batch = Z.unsqueeze(0).expand(B, N, -1)  # (B, N, K)
-        t_enc = self.time_encoder(time_idx)  # (B, embed_dim)
-        t_batch = t_enc.unsqueeze(1).expand(B, N, -1)  # (B, N, embed_dim)
-        fused = torch.cat([Z_batch, t_batch], dim=-1)  # (B, N, K+embed_dim)
-        return self.net(fused)  # (B, N, embed_dim)
+        z_static = self.zone_mlp(Z)
+        t_enc = self.time_encoder(time_idx)
+        gate = self.gate_proj(t_enc)
+        return gate.unsqueeze(1) * z_static.unsqueeze(0)
 
 
 # ══════════════════════════════════════════════
@@ -333,11 +335,18 @@ class TimeZoneAwareAHGNN(nn.Module):
 
     def forward(self, X, Z, time_idx, A_static=None):
         z_embed = self.zone_emb(Z, time_idx)  # (B, N, d_z)
-        A = self.adj_module(z_embed, time_idx, A_static)
+        
+        use_zone_adj = getattr(self, "use_zone_adj", True)
+        use_zone_weight = getattr(self, "use_zone_weight", True)
+
+        z_embed_adj = z_embed if use_zone_adj else (z_embed * 0.0)
+        z_embed_conv = z_embed if use_zone_weight else (z_embed * 0.0)
+
+        A = self.adj_module(z_embed_adj, time_idx, A_static)
         E = self.adj_module.E
         H = X
         for conv in self.conv_layers:
-            H = conv(H, A, E, z_embed)
+            H = conv(H, A, E, z_embed_conv)
         return self.fc(H)  # (B, N, T_out)
 
 
@@ -406,11 +415,18 @@ class SinusoidalZoneAwareAHGNN(nn.Module):
 
     def forward(self, X, Z, time_idx, A_static=None):
         z_embed = self.zone_emb(Z, time_idx)  # (B, N, d_z)
-        A = self.adj_module(z_embed, time_idx, A_static)
+        
+        use_zone_adj = getattr(self, "use_zone_adj", True)
+        use_zone_weight = getattr(self, "use_zone_weight", True)
+
+        z_embed_adj = z_embed if use_zone_adj else (z_embed * 0.0)
+        z_embed_conv = z_embed if use_zone_weight else (z_embed * 0.0)
+
+        A = self.adj_module(z_embed_adj, time_idx, A_static)
         E = self.adj_module.E
         H = X
         for conv in self.conv_layers:
-            H = conv(H, A, E, z_embed)
+            H = conv(H, A, E, z_embed_conv)
         return self.fc(H)  # (B, N, T_out)
 
 
