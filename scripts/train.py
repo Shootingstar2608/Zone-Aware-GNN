@@ -317,7 +317,10 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg):
         print(f"     {k}: {v:.4f}")
 
     os.makedirs(OUT_DIR, exist_ok=True)
-    torch.save(best_state, os.path.join(OUT_DIR, f"{variant_name}_best.pt"))
+    # ==================================================================================================================================
+    t_out = meta["T_out"]
+    torch.save(best_state, os.path.join(OUT_DIR, f"{variant_name}_T{t_out}_best.pt"))
+    # ===================================================================================================================================
 
     return {
         **test_metrics,
