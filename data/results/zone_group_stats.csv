@@ -1,0 +1,9 @@
+zone_type,num_nodes,total_assignments,pct_nodes
+commercial,13,13,76.5
+residential,13,13,76.5
+transport,10,10,58.8
+school,8,8,47.1
+hospital,4,4,23.5
+university,4,4,23.5
+park,4,4,23.5
+industrial,3,3,17.6
