@@ -1,0 +1,517 @@
+
+############################################################
+### Running for T_out = 3 (15 mins)
+############################################################
+
+Building graph for T_out=3...
+Rebuilt dataset for T_out=3: X shape torch.Size([658, 17, 48]), Y shape torch.Size([658, 17, 3])
+
+--- Training zone_full_tc (T_out=3) ---
+
+=======================================================
+  Variant: zone_full_tc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 358,788
+  Ep  10 | train_loss=0.0264 | val_MAE=0.1387 | val_RMSE=0.1949
+  Ep  20 | train_loss=0.0214 | val_MAE=0.1539 | val_RMSE=0.1902
+  Ep  30 | train_loss=0.0149 | val_MAE=0.0919 | val_RMSE=0.1554
+  Ep  40 | train_loss=0.0155 | val_MAE=0.0936 | val_RMSE=0.1564
+  Ep  50 | train_loss=0.0131 | val_MAE=0.0858 | val_RMSE=0.1473
+  Ep  60 | train_loss=0.0133 | val_MAE=0.0812 | val_RMSE=0.1510
+  Ep  70 | train_loss=0.0140 | val_MAE=0.0821 | val_RMSE=0.1476
+  Early stop at epoch 73
+
+  📊 Test Results:
+     MAE=0.0722 | RMSE=0.1274 | MAPE=5.42%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.0708
+     MAE_residential: 0.0727
+     MAE_industrial: 0.0782
+     MAE_school: 0.0722
+     MAE_university: 0.0775
+     MAE_hospital: 0.0728
+     MAE_transport: 0.0710
+     MAE_park: 0.0734
+     MAE_multi_zone: 0.0719
+
+--- Training zone_full_sinc (T_out=3) ---
+
+=======================================================
+  Variant: zone_full_sinc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 361,428
+  Ep  10 | train_loss=0.0208 | val_MAE=0.1178 | val_RMSE=0.1854
+  Ep  20 | train_loss=0.0166 | val_MAE=0.1084 | val_RMSE=0.1797
+  Ep  30 | train_loss=0.0165 | val_MAE=0.1122 | val_RMSE=0.1653
+  Ep  40 | train_loss=0.0156 | val_MAE=0.0934 | val_RMSE=0.1577
+  Ep  50 | train_loss=0.0142 | val_MAE=0.0906 | val_RMSE=0.1599
+  Ep  60 | train_loss=0.0144 | val_MAE=0.0897 | val_RMSE=0.1544
+  Ep  70 | train_loss=0.0145 | val_MAE=0.0876 | val_RMSE=0.1548
+  Ep  80 | train_loss=0.0138 | val_MAE=0.0910 | val_RMSE=0.1590
+  Ep  90 | train_loss=0.0140 | val_MAE=0.0916 | val_RMSE=0.1532
+  Ep 100 | train_loss=0.0140 | val_MAE=0.0894 | val_RMSE=0.1518
+
+  📊 Test Results:
+     MAE=0.0829 | RMSE=0.1402 | MAPE=6.13%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.0810
+     MAE_residential: 0.0852
+     MAE_industrial: 0.1003
+     MAE_school: 0.0802
+     MAE_university: 0.0933
+     MAE_hospital: 0.0856
+     MAE_transport: 0.0796
+     MAE_park: 0.0755
+     MAE_multi_zone: 0.0831
+
+--- Training gcn_gru (T_out=3) ---
+
+=======================================================
+  Variant: gcn_gru
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 32,707
+  Ep  10 | train_loss=0.0239 | val_MAE=0.1760 | val_RMSE=0.2219
+  Ep  20 | train_loss=0.0232 | val_MAE=0.1593 | val_RMSE=0.2105
+  Ep  30 | train_loss=0.0213 | val_MAE=0.1030 | val_RMSE=0.1935
+  Ep  40 | train_loss=0.0188 | val_MAE=0.1121 | val_RMSE=0.1843
+  Early stop at epoch 44
+
+  📊 Test Results:
+     MAE=0.0911 | RMSE=0.1647 | MAPE=6.32%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.0870
+     MAE_residential: 0.0917
+     MAE_industrial: 0.1249
+     MAE_school: 0.0946
+     MAE_university: 0.1120
+     MAE_hospital: 0.0967
+     MAE_transport: 0.0829
+     MAE_park: 0.0828
+     MAE_multi_zone: 0.0901
+
+--- Training stgcn (T_out=3) ---
+
+=======================================================
+  Variant: stgcn
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 32,579
+  Ep  10 | train_loss=0.0239 | val_MAE=0.1406 | val_RMSE=0.2065
+  Ep  20 | train_loss=0.0232 | val_MAE=0.1094 | val_RMSE=0.2038
+  Ep  30 | train_loss=0.0245 | val_MAE=0.1183 | val_RMSE=0.2065
+  Ep  40 | train_loss=0.0189 | val_MAE=0.1001 | val_RMSE=0.1835
+  Ep  50 | train_loss=0.0176 | val_MAE=0.0939 | val_RMSE=0.1807
+  Ep  60 | train_loss=0.0170 | val_MAE=0.0993 | val_RMSE=0.1734
+  Early stop at epoch 60
+
+  📊 Test Results:
+     MAE=0.0932 | RMSE=0.1666 | MAPE=6.47%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.0901
+     MAE_residential: 0.0937
+     MAE_industrial: 0.1192
+     MAE_school: 0.0904
+     MAE_university: 0.1072
+     MAE_hospital: 0.0968
+     MAE_transport: 0.0881
+     MAE_park: 0.0868
+     MAE_multi_zone: 0.0927
+
+############################################################
+### Running for T_out = 6 (30 mins)
+############################################################
+
+Building graph for T_out=6...
+Rebuilt dataset for T_out=6: X shape torch.Size([655, 17, 48]), Y shape torch.Size([655, 17, 6])
+
+--- Training zone_full_tc (T_out=6) ---
+
+=======================================================
+  Variant: zone_full_tc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 358,887
+  Ep  10 | train_loss=0.0272 | val_MAE=0.1706 | val_RMSE=0.2334
+  Ep  20 | train_loss=0.0256 | val_MAE=0.1344 | val_RMSE=0.2194
+  Ep  30 | train_loss=0.0218 | val_MAE=0.1256 | val_RMSE=0.2059
+  Ep  40 | train_loss=0.0213 | val_MAE=0.1273 | val_RMSE=0.2048
+  Ep  50 | train_loss=0.0217 | val_MAE=0.1226 | val_RMSE=0.2044
+  Ep  60 | train_loss=0.0215 | val_MAE=0.1255 | val_RMSE=0.2034
+  Early stop at epoch 65
+
+  📊 Test Results:
+     MAE=0.1249 | RMSE=0.2060 | MAPE=8.89%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1211
+     MAE_residential: 0.1291
+     MAE_industrial: 0.1571
+     MAE_school: 0.1305
+     MAE_university: 0.1498
+     MAE_hospital: 0.1324
+     MAE_transport: 0.1162
+     MAE_park: 0.1170
+     MAE_multi_zone: 0.1247
+
+--- Training zone_full_sinc (T_out=6) ---
+
+=======================================================
+  Variant: zone_full_sinc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 361,527
+  Ep  10 | train_loss=0.0253 | val_MAE=0.1667 | val_RMSE=0.2224
+  Ep  20 | train_loss=0.0226 | val_MAE=0.1289 | val_RMSE=0.2182
+  Ep  30 | train_loss=0.0222 | val_MAE=0.1273 | val_RMSE=0.1989
+  Ep  40 | train_loss=0.0181 | val_MAE=0.1149 | val_RMSE=0.1918
+  Ep  50 | train_loss=0.0178 | val_MAE=0.1160 | val_RMSE=0.1922
+  Ep  60 | train_loss=0.0172 | val_MAE=0.1088 | val_RMSE=0.1914
+  Ep  70 | train_loss=0.0166 | val_MAE=0.1120 | val_RMSE=0.1889
+  Early stop at epoch 74
+
+  📊 Test Results:
+     MAE=0.1104 | RMSE=0.1904 | MAPE=7.84%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1081
+     MAE_residential: 0.1135
+     MAE_industrial: 0.1348
+     MAE_school: 0.1136
+     MAE_university: 0.1274
+     MAE_hospital: 0.1168
+     MAE_transport: 0.1034
+     MAE_park: 0.1056
+     MAE_multi_zone: 0.1104
+
+--- Training gcn_gru (T_out=6) ---
+
+=======================================================
+  Variant: gcn_gru
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 32,902
+  Ep  10 | train_loss=0.0296 | val_MAE=0.1826 | val_RMSE=0.2447
+  Ep  20 | train_loss=0.0278 | val_MAE=0.1476 | val_RMSE=0.2345
+  Ep  30 | train_loss=0.0287 | val_MAE=0.1422 | val_RMSE=0.2283
+  Ep  40 | train_loss=0.0242 | val_MAE=0.1333 | val_RMSE=0.2240
+  Early stop at epoch 48
+
+  📊 Test Results:
+     MAE=0.1391 | RMSE=0.2412 | MAPE=9.47%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1349
+     MAE_residential: 0.1419
+     MAE_industrial: 0.1750
+     MAE_school: 0.1461
+     MAE_university: 0.1649
+     MAE_hospital: 0.1461
+     MAE_transport: 0.1290
+     MAE_park: 0.1310
+     MAE_multi_zone: 0.1384
+
+--- Training stgcn (T_out=6) ---
+
+=======================================================
+  Variant: stgcn
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 32,774
+  Ep  10 | train_loss=0.0326 | val_MAE=0.1498 | val_RMSE=0.2450
+  Ep  20 | train_loss=0.0279 | val_MAE=0.1349 | val_RMSE=0.2410
+  Ep  30 | train_loss=0.0269 | val_MAE=0.1345 | val_RMSE=0.2337
+  Ep  40 | train_loss=0.0265 | val_MAE=0.1425 | val_RMSE=0.2315
+  Ep  50 | train_loss=0.0259 | val_MAE=0.1437 | val_RMSE=0.2315
+  Early stop at epoch 52
+
+  📊 Test Results:
+     MAE=0.1416 | RMSE=0.2377 | MAPE=9.87%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1375
+     MAE_residential: 0.1440
+     MAE_industrial: 0.1784
+     MAE_school: 0.1499
+     MAE_university: 0.1682
+     MAE_hospital: 0.1495
+     MAE_transport: 0.1313
+     MAE_park: 0.1336
+     MAE_multi_zone: 0.1408
+
+############################################################
+### Running for T_out = 9 (45 mins)
+############################################################
+
+Building graph for T_out=9...
+Rebuilt dataset for T_out=9: X shape torch.Size([652, 17, 48]), Y shape torch.Size([652, 17, 9])
+
+--- Training zone_full_tc (T_out=9) ---
+
+=======================================================
+  Variant: zone_full_tc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 358,986
+  Ep  10 | train_loss=0.0384 | val_MAE=0.2471 | val_RMSE=0.3651
+  Ep  20 | train_loss=0.0362 | val_MAE=0.2377 | val_RMSE=0.3003
+  Ep  30 | train_loss=0.0338 | val_MAE=0.2117 | val_RMSE=0.2911
+  Ep  40 | train_loss=0.0304 | val_MAE=0.1955 | val_RMSE=0.2855
+  Early stop at epoch 49
+
+  📊 Test Results:
+     MAE=0.1507 | RMSE=0.2203 | MAPE=11.80%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1473
+     MAE_residential: 0.1536
+     MAE_industrial: 0.1754
+     MAE_school: 0.1577
+     MAE_university: 0.1710
+     MAE_hospital: 0.1572
+     MAE_transport: 0.1434
+     MAE_park: 0.1437
+     MAE_multi_zone: 0.1504
+
+--- Training zone_full_sinc (T_out=9) ---
+
+=======================================================
+  Variant: zone_full_sinc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 361,626
+  Ep  10 | train_loss=0.0353 | val_MAE=0.2916 | val_RMSE=0.3934
+  Ep  20 | train_loss=0.0283 | val_MAE=0.1952 | val_RMSE=0.2720
+  Ep  30 | train_loss=0.0275 | val_MAE=0.1865 | val_RMSE=0.2619
+  Ep  40 | train_loss=0.0259 | val_MAE=0.1843 | val_RMSE=0.2577
+  Ep  50 | train_loss=0.0246 | val_MAE=0.1720 | val_RMSE=0.2578
+  Ep  60 | train_loss=0.0251 | val_MAE=0.1727 | val_RMSE=0.2518
+  Ep  70 | train_loss=0.0238 | val_MAE=0.1719 | val_RMSE=0.2511
+  Ep  80 | train_loss=0.0242 | val_MAE=0.1720 | val_RMSE=0.2500
+  Ep  90 | train_loss=0.0238 | val_MAE=0.1704 | val_RMSE=0.2500
+  Ep 100 | train_loss=0.0242 | val_MAE=0.1699 | val_RMSE=0.2494
+
+  📊 Test Results:
+     MAE=0.1386 | RMSE=0.2014 | MAPE=11.09%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1360
+     MAE_residential: 0.1407
+     MAE_industrial: 0.1614
+     MAE_school: 0.1432
+     MAE_university: 0.1551
+     MAE_hospital: 0.1440
+     MAE_transport: 0.1315
+     MAE_park: 0.1339
+     MAE_multi_zone: 0.1385
+
+--- Training gcn_gru (T_out=9) ---
+
+=======================================================
+  Variant: gcn_gru
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 33,097
+  Ep  10 | train_loss=0.0394 | val_MAE=0.2090 | val_RMSE=0.2935
+  Ep  20 | train_loss=0.0356 | val_MAE=0.1973 | val_RMSE=0.2958
+  Ep  30 | train_loss=0.0341 | val_MAE=0.2066 | val_RMSE=0.2837
+  Early stop at epoch 35
+
+  📊 Test Results:
+     MAE=0.1462 | RMSE=0.2202 | MAPE=11.23%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1434
+     MAE_residential: 0.1474
+     MAE_industrial: 0.1682
+     MAE_school: 0.1517
+     MAE_university: 0.1621
+     MAE_hospital: 0.1500
+     MAE_transport: 0.1398
+     MAE_park: 0.1405
+     MAE_multi_zone: 0.1456
+
+--- Training stgcn (T_out=9) ---
+
+=======================================================
+  Variant: stgcn
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 32,969
+  Ep  10 | train_loss=0.0376 | val_MAE=0.1984 | val_RMSE=0.3001
+  Ep  20 | train_loss=0.0355 | val_MAE=0.1946 | val_RMSE=0.2919
+  Ep  30 | train_loss=0.0365 | val_MAE=0.2081 | val_RMSE=0.2773
+  Ep  40 | train_loss=0.0308 | val_MAE=0.1909 | val_RMSE=0.2649
+  Ep  50 | train_loss=0.0302 | val_MAE=0.1917 | val_RMSE=0.2624
+  Early stop at epoch 50
+
+  📊 Test Results:
+     MAE=0.1400 | RMSE=0.2085 | MAPE=10.68%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1375
+     MAE_residential: 0.1411
+     MAE_industrial: 0.1587
+     MAE_school: 0.1424
+     MAE_university: 0.1528
+     MAE_hospital: 0.1427
+     MAE_transport: 0.1349
+     MAE_park: 0.1349
+     MAE_multi_zone: 0.1396
+
+############################################################
+### Running for T_out = 12 (60 mins)
+############################################################
+
+Building graph for T_out=12...
+Rebuilt dataset for T_out=12: X shape torch.Size([649, 17, 48]), Y shape torch.Size([649, 17, 12])
+
+--- Training zone_full_tc (T_out=12) ---
+
+=======================================================
+  Variant: zone_full_tc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 359,085
+  Ep  10 | train_loss=0.1947 | val_MAE=0.4358 | val_RMSE=0.5848
+  Ep  20 | train_loss=0.0397 | val_MAE=0.2599 | val_RMSE=0.3589
+  Ep  30 | train_loss=0.0364 | val_MAE=0.2106 | val_RMSE=0.3022
+  Ep  40 | train_loss=0.0372 | val_MAE=0.2085 | val_RMSE=0.2957
+  Ep  50 | train_loss=0.0364 | val_MAE=0.2076 | val_RMSE=0.2901
+  Ep  60 | train_loss=0.0348 | val_MAE=0.2100 | val_RMSE=0.2941
+  Ep  70 | train_loss=0.0370 | val_MAE=0.2059 | val_RMSE=0.2829
+  Early stop at epoch 71
+
+  📊 Test Results:
+     MAE=0.1684 | RMSE=0.2537 | MAPE=12.09%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1642
+     MAE_residential: 0.1729
+     MAE_industrial: 0.1960
+     MAE_school: 0.1760
+     MAE_university: 0.1929
+     MAE_hospital: 0.1732
+     MAE_transport: 0.1588
+     MAE_park: 0.1616
+     MAE_multi_zone: 0.1682
+
+--- Training zone_full_sinc (T_out=12) ---
+
+=======================================================
+  Variant: zone_full_sinc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 361,725
+  Ep  10 | train_loss=0.0386 | val_MAE=0.2094 | val_RMSE=0.2870
+  Ep  20 | train_loss=0.0334 | val_MAE=0.2023 | val_RMSE=0.2868
+  Ep  30 | train_loss=0.0322 | val_MAE=0.1873 | val_RMSE=0.2879
+  Ep  40 | train_loss=0.0285 | val_MAE=0.1868 | val_RMSE=0.2607
+  Ep  50 | train_loss=0.0269 | val_MAE=0.1805 | val_RMSE=0.2652
+  Ep  60 | train_loss=0.0263 | val_MAE=0.1794 | val_RMSE=0.2594
+  Ep  70 | train_loss=0.0259 | val_MAE=0.1780 | val_RMSE=0.2556
+  Ep  80 | train_loss=0.0249 | val_MAE=0.1775 | val_RMSE=0.2535
+  Early stop at epoch 87
+
+  📊 Test Results:
+     MAE=0.1503 | RMSE=0.2182 | MAPE=11.46%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1475
+     MAE_residential: 0.1540
+     MAE_industrial: 0.1725
+     MAE_school: 0.1560
+     MAE_university: 0.1696
+     MAE_hospital: 0.1538
+     MAE_transport: 0.1428
+     MAE_park: 0.1442
+     MAE_multi_zone: 0.1502
+
+--- Training gcn_gru (T_out=12) ---
+
+=======================================================
+  Variant: gcn_gru
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 33,292
+  Ep  10 | train_loss=0.0432 | val_MAE=0.2266 | val_RMSE=0.3083
+  Ep  20 | train_loss=0.0380 | val_MAE=0.2118 | val_RMSE=0.3051
+  Ep  30 | train_loss=0.0341 | val_MAE=0.2006 | val_RMSE=0.2910
+  Ep  40 | train_loss=0.0308 | val_MAE=0.1984 | val_RMSE=0.2741
+  Ep  50 | train_loss=0.0321 | val_MAE=0.1938 | val_RMSE=0.2786
+  Early stop at epoch 58
+
+  📊 Test Results:
+     MAE=0.1681 | RMSE=0.2401 | MAPE=12.80%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1659
+     MAE_residential: 0.1714
+     MAE_industrial: 0.1843
+     MAE_school: 0.1724
+     MAE_university: 0.1825
+     MAE_hospital: 0.1707
+     MAE_transport: 0.1625
+     MAE_park: 0.1636
+     MAE_multi_zone: 0.1681
+
+--- Training stgcn (T_out=12) ---
+
+=======================================================
+  Variant: stgcn
+  zone_emb=False | zone_weight=False | zone_adj=False
+=======================================================
+  Parameters: 33,164
+  Ep  10 | train_loss=0.0455 | val_MAE=0.2223 | val_RMSE=0.3093
+  Ep  20 | train_loss=0.0399 | val_MAE=0.2193 | val_RMSE=0.2905
+  Ep  30 | train_loss=0.0353 | val_MAE=0.2093 | val_RMSE=0.2942
+  Ep  40 | train_loss=0.0348 | val_MAE=0.2103 | val_RMSE=0.2903
+  Ep  50 | train_loss=0.0321 | val_MAE=0.2081 | val_RMSE=0.2975
+  Ep  60 | train_loss=0.0321 | val_MAE=0.2065 | val_RMSE=0.2925
+  Early stop at epoch 60
+
+  📊 Test Results:
+     MAE=0.1757 | RMSE=0.2497 | MAPE=13.27%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.1736
+     MAE_residential: 0.1783
+     MAE_industrial: 0.1937
+     MAE_school: 0.1813
+     MAE_university: 0.1906
+     MAE_hospital: 0.1793
+     MAE_transport: 0.1699
+     MAE_park: 0.1706
+     MAE_multi_zone: 0.1755
+
+############################################################
+### Running for T_out = 18 (90 mins)
+############################################################
+
+Building graph for T_out=18...
+Rebuilt dataset for T_out=18: X shape torch.Size([643, 17, 48]), Y shape torch.Size([643, 17, 18])
+
+--- Training zone_full_tc (T_out=18) ---
+
+=======================================================
+  Variant: zone_full_tc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 359,283
+  Ep  10 | train_loss=0.0544 | val_MAE=0.2638 | val_RMSE=0.3065
+  Ep  20 | train_loss=0.0461 | val_MAE=0.1862 | val_RMSE=0.2642
+  Ep  30 | train_loss=0.0470 | val_MAE=0.2305 | val_RMSE=0.2769
+  Ep  40 | train_loss=0.0435 | val_MAE=0.1816 | val_RMSE=0.2620
+  Early stop at epoch 46
+
+  📊 Test Results:
+     MAE=0.2113 | RMSE=0.3057 | MAPE=14.77%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2054
+     MAE_residential: 0.2163
+     MAE_industrial: 0.2597
+     MAE_school: 0.2273
+     MAE_university: 0.2514
+     MAE_hospital: 0.2227
+     MAE_transport: 0.1962
+     MAE_park: 0.2013
+     MAE_multi_zone: 0.2103
+
+--- Training zone_full_sinc (T_out=18) ---
+
+=======================================================
+  Variant: zone_full_sinc
+  zone_emb=True | zone_weight=True | zone_adj=True
+=======================================================
+  Parameters: 361,923
+  Ep  10 | train_loss=0.0443 | val_MAE=0.2170 | val_RMSE=0.2763

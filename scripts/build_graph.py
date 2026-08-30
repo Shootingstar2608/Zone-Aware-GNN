@@ -252,11 +252,21 @@ def create_samples(
 # ══════════════════════════════════════════════
 # MAIN
 # ══════════════════════════════════════════════
+import argparse
+
 def main():
+    # ===================================================================================================================================
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--t_out", type=int, default=3, help="Prediction horizon")
+    args = parser.parse_args()
+    global T_OUT
+    T_OUT = args.t_out
+    # ===================================================================================================================================
+
     os.makedirs(OUT_DIR, exist_ok=True)
 
     # --- OSRM ---
-    print("📂 Loading OSRM data...")
+    print(f"📂 Loading OSRM data... (T_out={T_OUT})")
     df_osrm = pd.read_csv(OSRM_PATH)
     nodes = sorted(df_osrm["origin"].unique().tolist())
     node2idx = {n: i for i, n in enumerate(nodes)}
