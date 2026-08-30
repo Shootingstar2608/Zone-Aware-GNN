@@ -484,6 +484,7 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg):
     # ==================================================================================================================================
     t_out = meta["T_out"]
     torch.save(best_state, os.path.join(OUT_DIR, f"{variant_name}_T{t_out}_best.pt"))
+    torch.save(best_state, os.path.join(OUT_DIR, f"{variant_name}_best.pt"))
     # ===================================================================================================================================
 
     result = {
