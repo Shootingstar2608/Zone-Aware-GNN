@@ -129,11 +129,47 @@ def check_fingerprint(record: dict, path: str = DATASET_PATH) -> None:
             "Index cu da vo nghia. Sinh lai partition truoc khi chay."
         )
 
+def _water_fill(p, S, B):
+    """Chia ngan sach B cho N node theo ti le p, tran moi node la S.
+
+    Clip thuong khien phan vuot tran bi vut di => tong ngan sach boc hoi.
+    O day phan vuot duoc CHIA LAI cho cac node chua day, lap den khi
+    khong con ai vuot tran.
+    """
+    N = len(p)
+    n = np.zeros(N)
+    free = np.ones(N, dtype=bool)          # node chua bi chot o tran
+    remaining = float(B)
+
+    while True:
+        w = np.where(free, p, 0.0)
+        if w.sum() <= 0 or remaining <= 0:
+            break
+        share = remaining * w / w.sum()     # chia theo ti le TRONG nhom chua day
+        over = free & (share > S)
+        if not over.any():                  # khong ai vuot -> xong
+            n[free] = share[free]
+            break
+        n[over] = S                         # chot cac node vuot o tran
+        remaining -= S * over.sum()
+        free &= ~over                       # loai ho ra, vong sau chia lai phan du
+
+    # lam tron kieu largest-remainder de tong khop B (floor thuong hut toi N don vi)
+    fl = np.floor(n).astype(int)
+    deficit = int(round(B)) - fl.sum()
+    for v in np.argsort(-(n - fl)):         # uu tien node co phan thap phan lon nhat
+        if deficit <= 0:
+            break
+        if fl[v] < S:                       # van phai ton trong tran
+            fl[v] += 1
+            deficit -= 1
+    return np.clip(fl, 0, S)
 
 # ══════════════════════════════════════════════════════════════
 # CO CHE — stub, Nguoi 4 code duoc song song dua vao chu ky
 # ══════════════════════════════════════════════════════════════
-def quantity_skew(S: int, N: int, alpha: float, seed: int, block_len: int = 1):
+def quantity_skew(S: int, N: int, alpha: float, seed: int, block_len: int = 1, 
+                  mode="fixed_coverage", c_bar=0.5):
     """
     Coverage skew: moi node giu mot phan cua so thoi gian, ti le boc tu Dirichlet.
 
@@ -154,7 +190,54 @@ def quantity_skew(S: int, N: int, alpha: float, seed: int, block_len: int = 1):
       - BAT BUOC rng cuc bo: rng = np.random.default_rng(seed)
         KHONG dung np.random.seed() -- train.py co set_seed(42) se de len.
     """
-    raise NotImplementedError("P1")
+    rng = np.random.default_rng(seed)
+    p = rng.dirichlet(alpha * np.ones(N))
+
+    if mode not in ("fixed_coverage", "budget", "relative"):
+        raise ValueError(f"mode khong hop le: {mode!r}")
+
+    if mode == "relative":
+        n = np.clip(np.floor(p / p.max() * S).astype(int), 0, S)
+    else:
+        B = N * S if mode == "budget" else c_bar * N * S
+        n = _water_fill(p, S, B)
+
+    mask = np.zeros((S, N), dtype=bool)
+    for v in range(N):
+        if n[v] == 0:
+            continue
+        if block_len == 1:
+            idx = rng.choice(S, size=n[v], replace=False)
+        else:
+            # khoi cuoi cung co the ngan hon block_len => tong suc chua van la S
+            starts = np.arange(0, S, block_len)
+            order = rng.permutation(len(starts))
+            picked, total = [], 0
+            for si in order:
+                s0 = starts[si]
+                picked.append(np.arange(s0, min(s0 + block_len, S)))
+                total += min(block_len, S - s0)
+                if total >= n[v]:
+                    break
+            idx = np.concatenate(picked)[:n[v]]
+        mask[idx, v] = True
+
+    n_per_node = mask.sum(axis=0).tolist()
+    stats = {
+        "n_per_node": n_per_node,
+        "total_obs": int(sum(n_per_node)),
+        "coverage": float(sum(n_per_node)) / (S * N),
+        "gini": gini(n_per_node),
+        "n_zero_nodes": int(sum(1 for x in n_per_node if x == 0)),
+        "zero_nodes": [int(v) for v, x in enumerate(n_per_node) if x == 0],
+        "alpha": float(alpha),
+        "seed": int(seed),
+        "block_len": int(block_len),
+        "mode": mode,
++       "c_bar": float(c_bar),
+    }
+    return mask, stats
+
 
 
 def zone_skew(Z: np.ndarray, S: int, n_clusters: int, seed: int):
