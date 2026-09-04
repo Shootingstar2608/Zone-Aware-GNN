@@ -43,12 +43,20 @@ ZONE_TYPES = [
 T_IN = 12
 T_OUT = 3
 
-TIME_LABEL_MAP = {
-    **{h: 0 for h in range(0, 6)},
-    **{h: 1 for h in range(7, 10)},
-    **{h: 2 for h in range(16, 20)},
-    **{h: 3 for h in range(6, 24)},
-}
+def time_label_of(hour: int) -> int:
+    """0 = night, 1 = rush_morning, 2 = rush_evening, 3 = normal.
+
+    Khop dung ngu nghia cua get_time_label() trong
+    scripts/dev/generate_synthetic_traffic.py -- DUNG de hai noi lech nhau.
+    hour == 6 va 10-15, 20-23 deu roi vao 'normal', giong ben generator.
+    """
+    if 0 <= hour < 6:
+        return 0
+    if 7 <= hour < 10:
+        return 1
+    if 16 <= hour < 20:
+        return 2
+    return 3
 
 
 # ══════════════════════════════════════════════
@@ -127,7 +135,8 @@ def build_node_features_tomtom(
         hour = ts_obj.hour
         dow = ts_obj.dayofweek
 
-        time_list.append(TIME_LABEL_MAP.get(hour, 3))
+        # time_list.append(TIME_LABEL_MAP.get(hour, 3))
+        time_list.append(time_label_of(hour))
         hour_list.append(hour)  # ← MỚI
         dow_list.append(dow)  # ← MỚI
         X_list.append(feat)
@@ -159,7 +168,8 @@ def build_node_features_osrm_proxy(
                 cnt[i, 0] += 1
         cnt[cnt == 0] = 1
         feat = feat / cnt
-        time_list.append(TIME_LABEL_MAP.get(hour, 3))
+        # time_list.append(TIME_LABEL_MAP.get(hour, 3))
+        time_list.append(time_label_of(hour))
         hour_list.append(hour)
         dow_list.append(2)  # fallback: Wednesday (mid-week)
         X_list.append(feat)

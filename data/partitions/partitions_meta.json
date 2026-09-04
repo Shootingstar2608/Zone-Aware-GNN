@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.1.0",
+  "partitions": [
+    {
+      "schema_version": "0.1.0",
+      "partition_id": "qskew_a0.5_s42",
+      "scenario": "quantity_skew",
+      "params": { "alpha": 0.5, "block_len": 1 },
+      "seed": 42,
+      "dataset_fingerprint": "PLACEHOLDER_sha256_cua_graph_dataset_pt",
+      "meta_snapshot": { "N": 17, "S": 637, "T_in": 12, "T_out": 24 },
+      "overlap_gap": 35,
+      "git_commit": "PLACEHOLDER",
+      "mask_hash": "PLACEHOLDER_sha256_cua_mask",
+      "node_windows": {
+        "0": [0, 1, 2, 5, 8],
+        "1": [0, 3, 4],
+        "2": []
+      },
+      "stats": {
+        "n_per_node": [5, 3, 0],
+        "gini": 0.42,
+        "n_zero_nodes": 1,
+        "zero_nodes": [2],
+        "alpha": 0.5,
+        "seed": 42
+      }
+    }
+  ]
+}

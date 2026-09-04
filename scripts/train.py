@@ -369,7 +369,7 @@ def set_seed(seed=42):
         torch.backends.cudnn.benchmark = False
 
 
-def run_experiment(variant_name, meta, dataset_dict, ablation_cfg):
+def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LAMBDA_COS):
     set_seed(42)
     use_zone_emb, use_zone_weight, use_zone_adj = ablation_cfg
 
