@@ -234,7 +234,7 @@ def quantity_skew(S: int, N: int, alpha: float, seed: int, block_len: int = 1,
         "seed": int(seed),
         "block_len": int(block_len),
         "mode": mode,
-+       "c_bar": float(c_bar),
+        "c_bar": float(c_bar),
     }
     return mask, stats
 

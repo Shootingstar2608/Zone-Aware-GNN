@@ -53,6 +53,8 @@ from scripts.train import (
     compute_metrics,
     compute_zone_stratified_metrics,
     evaluate,
+    get_zone_embeddings,
+    compute_cosine_reg,
     set_seed,
     train_one_epoch,
 )
@@ -167,6 +169,58 @@ def generate_quantity_partitions(
     return records
 
 
+def train_one_epoch_masked(
+    model, loader, optimizer, A, Z, device, lambda_cos=LAMBDA_COS
+):
+    model.train()
+    total_loss = 0.0
+    total_huber = 0.0
+    total_cos = 0.0
+    for batch in loader:
+        if len(batch) == 4:
+            X_b, Y_b, T_b, M_b = batch
+            M_b = M_b.to(device)
+        else:
+            X_b, Y_b, T_b = batch
+            M_b = torch.ones((X_b.shape[0], X_b.shape[1]), device=device)
+
+        X_b, Y_b, T_b = X_b.to(device), Y_b.to(device), T_b.to(device)
+        pred = model(X_b, Z, T_b, A)
+
+        # Loss masking: chỉ tính loss trên các node có quan sát tại snapshot đó
+        huber_elementwise = nn.HuberLoss(reduction="none")(pred, Y_b)
+        mask_expanded = M_b.unsqueeze(-1)
+        denom = mask_expanded.sum() * pred.shape[-1]
+        if denom > 0:
+            huber_loss = (huber_elementwise * mask_expanded).sum() / denom
+        else:
+            huber_loss = huber_elementwise.mean()
+
+        z_emb = get_zone_embeddings(model, Z, T_b)
+        if z_emb is not None and lambda_cos > 0:
+            cos_reg = compute_cosine_reg(z_emb, Z)
+            loss = huber_loss + lambda_cos * cos_reg
+        else:
+            cos_reg = torch.zeros((), device=device)
+            loss = huber_loss
+
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+        optimizer.step()
+
+        total_loss += loss.item()
+        total_huber += huber_loss.item()
+        total_cos += cos_reg.item()
+
+    n = max(len(loader), 1)
+    return {
+        "loss": total_loss / n,
+        "huber": total_huber / n,
+        "cos_reg": total_cos / n,
+    }
+
+
 # ══════════════════════════════════════════════════════════════
 # 2. TRAIN VÀ EVALUATE TRÊN 1 PARTITION
 # ══════════════════════════════════════════════════════════════
@@ -200,7 +254,17 @@ def train_on_partition(
             "reason": f"train_size={len(train_idx)} < batch_size={BATCH_SIZE}",
         }
 
-    train_ds = TensorDataset(X[train_idx], Y[train_idx], TL[train_idx])
+    # Phục hồi mask (S, N) để thực hiện loss masking
+    S = meta["S"]
+    N = meta["N"]
+    M = torch.zeros((S, N), dtype=torch.float32)
+    if "node_windows" in partition:
+        for v_str, s_list in partition["node_windows"].items():
+            M[s_list, int(v_str)] = 1.0
+    else:
+        M = torch.ones((S, N), dtype=torch.float32)
+
+    train_ds = TensorDataset(X[train_idx], Y[train_idx], TL[train_idx], M[train_idx])
     val_ds = TensorDataset(X[val_idx], Y[val_idx], TL[val_idx])
     test_ds = TensorDataset(X[test_idx], Y[test_idx], TL[test_idx])
 
@@ -223,7 +287,7 @@ def train_on_partition(
 
     t0 = time.time()
     for epoch in range(1, EPOCHS + 1):
-        train_one_epoch(
+        train_one_epoch_masked(
             model, train_loader, optimizer, A, Z, DEVICE, lambda_cos=lambda_cos
         )
         val_preds, val_trues = evaluate(model, val_loader, A, Z, DEVICE)
@@ -248,12 +312,24 @@ def train_on_partition(
     )
 
     stats = partition.get("stats", {})
+    zero_nodes = stats.get("zero_nodes", [])
+    if len(zero_nodes) > 0:
+        zero_node_mae = (
+            (test_preds[:, zero_nodes, :] - test_trues[:, zero_nodes, :])
+            .abs()
+            .mean()
+            .item()
+        )
+    else:
+        zero_node_mae = float("nan")
+
     return {
         "variant": variant,
         "partition_id": partition["partition_id"],
         "alpha": partition["params"].get("alpha", float("nan")),
         "gini": stats.get("gini", float("nan")),
         "n_zero_nodes": stats.get("n_zero_nodes", 0),
+        "zero_node_MAE": zero_node_mae,
         "train_size": len(train_idx),
         "test_size": len(test_idx),
         "seed": seed,

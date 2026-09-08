@@ -23,8 +23,6 @@ from torch.utils.data import DataLoader, TensorDataset, random_split
 # Add parent dir to path
 import sys
 
-from torchgen import model
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from models.zone_aware_gnn import ZoneAwareAHGNN  # fix: bỏ T_out
