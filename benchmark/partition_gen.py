@@ -3,17 +3,17 @@ benchmark/partition_gen.py
 ==========================
 Bo sinh phan vung Non-IID cho benchmark HCM-Sim.
 
-Thiet ke va ly do: docs/03_benchmark_partition_design.md
+Thiet ke va ly do: docs/khoa/03_benchmark_partition_design.md
 
 NGUYEN TAC BAT DI BAT DICH
     partition = index/mask + config + seed.  KHONG BAO GIO copy tensor.
 
 TRANG THAI
     [x] plumbing: fingerprint, gini, clock, leakage guard, io
-    [ ] quantity_skew   (P1)
-    [ ] temporal_shift  (P2)
-    [ ] zone_skew       (P3)
-    [ ] concept_drift   (P4 - lam o tang generator, xem docs/03 §7)
+    [x] quantity_skew   (P1)  mode mac dinh: fixed_coverage
+    [x] temporal_shift  (P2)  chi weekday_to_weekend; normal_to_rush bat kha thi
+    [x] zone_skew       (P3)  giu so mau deu nhau => truc giao voi quantity_skew
+    [x] concept_drift   (P4)  tra ve SPEC cho generator, khong sua tensor
 """
 
 from __future__ import annotations
@@ -181,7 +181,7 @@ def quantity_skew(S: int, N: int, alpha: float, seed: int, block_len: int = 1,
     stats : dict         -- n_per_node, gini, n_zero_nodes, zero_nodes,
                             alpha, seed, block_len
 
-    QUY UOC (docs/03 §4)
+    QUY UOC (docs/khoa/03 §4)
       - alpha nho => lech manh; alpha lon => deu
       - CHO PHEP node nhan 0 cua so, KHONG dat san. Node do la thi nghiem chinh:
         du bao mot node chua tung duoc giam sat, chi bang zone label + hang xom.
@@ -234,38 +234,237 @@ def quantity_skew(S: int, N: int, alpha: float, seed: int, block_len: int = 1,
         "seed": int(seed),
         "block_len": int(block_len),
         "mode": mode,
-+       "c_bar": float(c_bar),
+        "c_bar": float(c_bar),
     }
     return mask, stats
 
 
 
-def zone_skew(Z: np.ndarray, S: int, n_clusters: int, seed: int):
-    """Cum node theo thanh phan zone, moi cum nhan mot phan phoi khac nhau.
+# ── P3: Feature / Zone Skew ────────────────────────────────────────────
+def _cluster_zones(Z: np.ndarray, n_clusters: int) -> np.ndarray:
+    """Agglomerative average-linkage tren cosine distance cua vector zone.
 
-    Returns (mask, stats) voi stats co them: cluster_of_node, jsd_between_clusters.
+    Tu viet thay vi dung sklearn: 17 node nen chi phi khong dang ke, doi lai
+    khong phu thuoc phien ban sklearn (API metric/affinity da doi vai lan)
+    va tat dinh tuyet doi.
     """
-    raise NotImplementedError("P3")
+    Zn = Z / np.maximum(np.linalg.norm(Z, axis=1, keepdims=True), 1e-9)
+    D = 1.0 - Zn @ Zn.T
+    np.fill_diagonal(D, 0.0)
+    clusters = [[i] for i in range(Z.shape[0])]
+    while len(clusters) > n_clusters:
+        best = None
+        for a in range(len(clusters)):
+            for b in range(a + 1, len(clusters)):
+                d = float(D[np.ix_(clusters[a], clusters[b])].mean())
+                if best is None or d < best[0]:      # tie -> giu cap dau tien
+                    best = (d, a, b)
+        _, a, b = best
+        clusters[a] = clusters[a] + clusters[b]
+        del clusters[b]
+    clusters.sort(key=min)                            # nhan on dinh theo node nho nhat
+    lab = np.zeros(Z.shape[0], dtype=int)
+    for c, mem in enumerate(clusters):
+        lab[mem] = c
+    return lab
 
 
-def temporal_shift(S: int, meta: dict, scenario: str, seed: int = 0):
+def _jsd(p, q) -> float:
+    p = np.asarray(p, float); q = np.asarray(q, float)
+    p = p / max(p.sum(), 1e-12); q = q / max(q.sum(), 1e-12)
+    m = 0.5 * (p + q)
+    kl = lambda a, b: float(np.sum(np.where(a > 0, a * np.log2(a / np.where(b > 0, b, 1)), 0.0)))
+    return 0.5 * kl(p, m) + 0.5 * kl(q, m)
+
+
+def zone_skew(Z: np.ndarray, S: int, meta: dict, n_clusters: int = 3, seed: int = 42,
+              c_bar: float = 0.5, off_band_weight: float = 0.1, labels=None):
+    """Cum node theo thanh phan zone; moi cum quan sat mot KHUNG GIO khac nhau.
+
+    Khac quantity_skew o cho: so cua so moi node deu NHU NHAU (= c_bar * S),
+    chi khac o CUA SO NAO. Nho vay hai co che truc giao -- quantity_skew doi
+    "bao nhieu", zone_skew doi "phan phoi dac trung" -- va Nguoi 4 sweep duoc
+    tung cai mot ma khong lan nhau.
+
+    labels: gan cum THU CONG (mang (N,) int). None => tu dong cum theo Z.
+    off_band_weight: trong so cua cua so NGOAI khung gio cua cum (1.0 = khong
+    lech ti nao, cang nho cang lech).
     """
-    scenario in {"weekday_to_weekend", "normal_to_rush"}.
+    N = Z.shape[0]
+    rng = np.random.default_rng(seed)
+    hour, _ = recover_clock(S, meta["T_in"])
+    if labels is None:
+        lab = _cluster_zones(Z, n_clusters)
+    else:                                  # cho phep gan cum THU CONG theo ngu nghia
+        lab = np.asarray(labels, dtype=int)
+        if lab.shape != (N,):
+            raise ValueError(f"labels phai co shape ({N},), nhan duoc {lab.shape}")
+        n_clusters = int(lab.max()) + 1
 
-    Returns (splits, stats); splits = {"train": [...], "val": [...], "test": [...]}.
-    BAT BUOC goi assert_no_leakage(train, test, overlap_gap(meta)) truoc khi tra ve.
-    Dung recover_clock(S, meta["T_in"]) de lay hour/dow.
+    edges = np.linspace(0, 24, n_clusters + 1)        # chia ngay thanh n_clusters dai gio
+    n_keep = int(round(c_bar * S))
+    if off_band_weight <= 0:
+        raise ValueError(
+            "off_band_weight phai > 0: bang 0 nghia la cum chi duoc lay cua so trong "
+            f"khung gio cua no (~{S//n_clusters}), khong du cho n_keep={n_keep}. "
+            "Dung 0.01 neu muon lech gan nhu tuyet doi."
+        )
+    mask = np.zeros((S, N), dtype=bool)
+    for v in range(N):
+        c = lab[v]
+        in_band = (hour >= edges[c]) & (hour < edges[c + 1])
+        w = np.where(in_band, 1.0, off_band_weight)
+        idx = rng.choice(S, size=n_keep, replace=False, p=w / w.sum())
+        mask[idx, v] = True
 
-    LUU Y (docs/03 §8): chi co DUNG 1 cuoi tuan trong 7 ngay => test set
-    weekday->weekend confounded hoan toan voi "2 ngay cuoi chuoi". Ghi vao Data Card.
+    hist = []                                          # phan bo gio thuc te cua tung cum
+    for c in range(n_clusters):
+        h = np.zeros(24)
+        for v in np.flatnonzero(lab == c):
+            h += np.bincount(hour[mask[:, v]], minlength=24)
+        hist.append(h)
+    pairs = [_jsd(hist[i], hist[j]) for i in range(n_clusters) for j in range(i + 1, n_clusters)]
+
+    n_per_node = mask.sum(axis=0).tolist()
+    stats = {
+        "n_per_node": n_per_node,
+        "total_obs": int(sum(n_per_node)),
+        "coverage": float(sum(n_per_node)) / (S * N),
+        "gini": gini(n_per_node),
+        "cluster_of_node": lab.tolist(),
+        "cluster_sizes": np.bincount(lab, minlength=n_clusters).tolist(),
+        "jsd_between_clusters": float(np.mean(pairs)) if pairs else 0.0,
+        "jsd_pairs": [float(x) for x in pairs],
+        "n_clusters": int(n_clusters), "c_bar": float(c_bar),
+        "off_band_weight": float(off_band_weight), "seed": int(seed),
+    }
+    return mask, stats
+
+
+# ── P4: Concept Drift ──────────────────────────────────────────────────
+def concept_drift(test_idx, N: int, seed: int = 42, n_targets: int = 3,
+                  magnitude: float = 1.8, duration: int = 24, ramp: int = 8):
+    """Sinh SPEC su co giao thong, KHONG sua tensor.
+
+    Tra ve mo ta de generate_synthetic_traffic.py doc va ap o tang sinh du lieu,
+    nho vay traffic_delay_s / travel_time_s / congestion_ratio dich chuyen NHAT
+    QUAN VE VAT LY. Sua thang tensor thi phai tu tay giu quan he giua chung,
+    va sai mot cai la model hoc duoc quan he phi vat ly (docs/khoa/03 §7).
+
+    Su co dat TRONG test set: drift phai la thu model chua tung thay luc train.
+    profile la he so nhan hinh thang: len dan `ramp`, giu `duration`, xuong dan.
     """
-    raise NotImplementedError("P2")
+    test_idx = np.asarray(test_idx)
+    rng = np.random.default_rng(seed)
+    if test_idx.size < duration + 2 * ramp:
+        raise ValueError(f"test qua ngan: {test_idx.size} < {duration + 2*ramp}")
+
+    targets = np.sort(rng.choice(N, size=min(n_targets, N), replace=False))
+    lo = int(rng.integers(0, test_idx.size - (duration + 2 * ramp) + 1))
+    span = test_idx[lo: lo + duration + 2 * ramp]
+
+    profile = np.concatenate([
+        np.linspace(1.0, magnitude, ramp, endpoint=False),
+        np.full(duration, magnitude),
+        np.linspace(magnitude, 1.0, ramp, endpoint=False),
+    ])
+    spec = {
+        "kind": "incident",
+        "target_nodes": targets.tolist(),
+        "window_start": int(span[0]), "window_end": int(span[-1]),
+        "magnitude": float(magnitude), "duration": int(duration), "ramp": int(ramp),
+        "profile": [float(x) for x in profile],
+        "applies_to": "congestion_ratio (generator suy ra delay va travel_time)",
+    }
+    stats = {
+        "n_targets": int(targets.size), "span_len": int(span.size),
+        "frac_of_test": float(span.size / test_idx.size),
+        "peak": float(magnitude), "seed": int(seed),
+    }
+    return spec, stats
 
 
-def concept_drift(*args, **kwargs):
-    """KHONG hack spike vao tensor -- them drift mode vao generate_synthetic_traffic.py.
-    Ly do: docs/03 §7. Ham nay chi tra ve spec de generator doc."""
-    raise NotImplementedError("P4")
+def rush_mask(S: int, meta: dict) -> np.ndarray:
+    """(S,) bool -- cua so nao roi vao gio cao diem.
+
+    Dung cho rush-stratified METRIC (viec cua Nguoi 4), khong phai partition:
+    tach rush/normal thanh hai tap roi nhau la BAT KHA THI voi bo du lieu nay,
+    xem docs/khoa/03 §5.
+    """
+    hour, _ = recover_clock(S, meta["T_in"])
+    return ((hour >= 7) & (hour < 10)) | ((hour >= 16) & (hour < 20))
+
+
+def _min_dist(a: np.ndarray, b: np.ndarray) -> int:
+    if a.size == 0 or b.size == 0:
+        return 10 ** 9
+    return int(np.abs(a[:, None] - b[None, :]).min())
+
+
+def temporal_shift(S: int, meta: dict, scenario: str = "weekday_to_weekend",
+                   seed: int = 0, val_size: int = 60):
+    """
+    Train tren ngay thuong -> test tren cuoi tuan.
+
+    scenario chi con "weekday_to_weekend". "normal_to_rush" da bi bo:
+    voi gap = T_in + T_out - 1, khong con cua so normal nao song sot sau purge
+    (0/449 o T_out=24). Dung rush_mask() lam metric thay vi partition.
+
+    seed KHONG duoc dung -- split nay hoan toan tat dinh. Giu tham so cho
+    dong nhat chu ky voi cac co che khac.
+
+    Returns
+    -------
+    splits : {"train": [...], "val": [...], "test": [...]}
+    stats  : dict
+    """
+    if scenario != "weekday_to_weekend":
+        raise ValueError(
+            f"scenario khong ho tro: {scenario!r}. "
+            "normal_to_rush bat kha thi, xem docs/khoa/03 §5."
+        )
+
+    gap = overlap_gap(meta)
+    _, dow = recover_clock(S, meta["T_in"])
+
+    test = np.flatnonzero(dow >= 5)
+    weekday = np.flatnonzero(dow <= 4)
+    if test.size == 0 or weekday.size == 0:
+        raise ValueError("du lieu khong co du ca ngay thuong lan cuoi tuan")
+
+    # Dung LUI tu test: test la tai nguyen khan hiem nhat, co dinh truoc.
+    # val lay tu phan phoi TRAIN (ngay thuong) -- neu lay tu cuoi tuan thi
+    # early-stopping se nhin thay phan phoi test => leakage kieu khac.
+    val_end = test.min() - gap - 1
+    cand = weekday[weekday <= val_end]
+    if cand.size < val_size:
+        raise ValueError(f"khong du cua so ngay thuong cho val: {cand.size} < {val_size}")
+    val = cand[-val_size:]
+
+    train_end = val.min() - gap - 1
+    train = weekday[weekday <= train_end]
+    if train.size == 0:
+        raise ValueError("khong con cua so nao cho train sau khi tru 2 khoang gap")
+
+    for a, b, name in [(train, val, "train-val"), (val, test, "val-test"),
+                       (train, test, "train-test")]:
+        assert_no_leakage(a, b, gap)
+
+    splits = {"train": train.tolist(), "val": val.tolist(), "test": test.tolist()}
+    stats = {
+        "scenario": scenario,
+        "gap_required": gap,
+        "min_gap_actual": min(_min_dist(train, val), _min_dist(val, test),
+                              _min_dist(train, test)),
+        "n_train": int(train.size), "n_val": int(val.size), "n_test": int(test.size),
+        "n_burned": int(S - train.size - val.size - test.size),
+        "dow_train": sorted(int(x) for x in set(dow[train])),
+        "dow_val": sorted(int(x) for x in set(dow[val])),
+        "dow_test": sorted(int(x) for x in set(dow[test])),
+        "rush_frac_test": float(rush_mask(S, meta)[test].mean()),
+        "val_size": int(val_size), "seed": int(seed),
+    }
+    return splits, stats
 
 
 # ══════════════════════════════════════════════════════════════
