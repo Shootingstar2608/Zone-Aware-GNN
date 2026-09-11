@@ -36,21 +36,34 @@ class SeasonalTimeEncoder(nn.Module):
           7h30 ≈ 8h00 (gần nhau trong ngày)
 
     Input:
-      time_idx: (B,) — 0=night, 1=normal, 2=rush_morning, 3=rush_evening
+      time_idx: (B,) — nhãn rời rạc PHẢI khớp 100% với time_label_of()
+                trong scripts/build_graph.py:
+                  0 = night          (0h  ≤ hour < 6h)
+                  1 = rush_morning   (7h  ≤ hour < 10h)
+                  2 = rush_evening   (16h ≤ hour < 20h)
+                  3 = normal         (các giờ còn lại: 6h, 10h-15h, 20h-23h)
     Output:
       (B, embed_dim) — continuous time embedding
 
     Cách mã hoá:
-      1. Map label → giờ đại diện: night=2h, normal=11h, rush_m=8h, rush_e=17h
-      2. Map label → ngày đại diện: rush_m/e=2 (weekday), night/normal=4 (any)
+      1. Map label → giờ đại diện: night=2h, rush_morning=8h, rush_evening=17h, normal=11h
+      2. Map label → ngày đại diện: rush_morning/rush_evening=2 (weekday),
+         night/normal=4 (ngày bất kỳ, đại diện chung)
       3. Sinusoidal encoding theo giờ và ngày
       4. MLP chiếu → embed_dim
     """
 
-    # Giờ đại diện cho mỗi label: night, normal, rush_morning, rush_evening
-    HOUR_MAP = torch.tensor([2.0, 11.0, 8.0, 17.0])
-    # Ngày đại diện (0=Mon ... 6=Sun): rush=weekday(2), else=mid(4)
-    DAY_MAP = torch.tensor([4.0, 4.0, 2.0, 2.0])
+    # ⚠️ Thứ tự dưới đây PHẢI khớp 100% với time_label_of() trong
+    #    scripts/build_graph.py — KHÔNG được đổi thứ tự nếu build_graph.py
+    #    không đổi theo:
+    #      index 0 → night          → giờ đại diện 2h
+    #      index 1 → rush_morning   → giờ đại diện 8h
+    #      index 2 → rush_evening   → giờ đại diện 17h
+    #      index 3 → normal         → giờ đại diện 11h
+    HOUR_MAP = torch.tensor([2.0, 8.0, 17.0, 11.0])
+    # Ngày đại diện (0=Mon ... 6=Sun), theo đúng thứ tự index ở trên:
+    #   night=4 (bất kỳ), rush_morning=2 (weekday), rush_evening=2 (weekday), normal=4 (bất kỳ)
+    DAY_MAP = torch.tensor([4.0, 2.0, 2.0, 4.0])
 
     def __init__(self, embed_dim: int, d_model: int = 32):
         """
@@ -128,10 +141,7 @@ class TimeZoneEmbedding(nn.Module):
             nn.LayerNorm(embed_dim),
         )
         self.time_emb = nn.Embedding(num_time_labels, embed_dim)
-        self.gate_proj = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim),
-            nn.Sigmoid()
-        )
+        self.gate_proj = nn.Sequential(nn.Linear(embed_dim, embed_dim), nn.Sigmoid())
 
     def forward(self, Z: torch.Tensor, time_idx: torch.Tensor) -> torch.Tensor:
         """
@@ -173,10 +183,7 @@ class SinusoidalZoneEmbedding(nn.Module):
             nn.LayerNorm(embed_dim),
         )
         self.time_encoder = SeasonalTimeEncoder(embed_dim, d_model)
-        self.gate_proj = nn.Sequential(
-            nn.Linear(embed_dim, embed_dim),
-            nn.Sigmoid()
-        )
+        self.gate_proj = nn.Sequential(nn.Linear(embed_dim, embed_dim), nn.Sigmoid())
 
     def forward(self, Z: torch.Tensor, time_idx: torch.Tensor) -> torch.Tensor:
         """
@@ -335,7 +342,7 @@ class TimeZoneAwareAHGNN(nn.Module):
 
     def forward(self, X, Z, time_idx, A_static=None):
         z_embed = self.zone_emb(Z, time_idx)  # (B, N, d_z)
-        
+
         use_zone_adj = getattr(self, "use_zone_adj", True)
         use_zone_weight = getattr(self, "use_zone_weight", True)
 
@@ -415,7 +422,7 @@ class SinusoidalZoneAwareAHGNN(nn.Module):
 
     def forward(self, X, Z, time_idx, A_static=None):
         z_embed = self.zone_emb(Z, time_idx)  # (B, N, d_z)
-        
+
         use_zone_adj = getattr(self, "use_zone_adj", True)
         use_zone_weight = getattr(self, "use_zone_weight", True)
 
@@ -457,11 +464,12 @@ if __name__ == "__main__":
     print(f"  Input time_idx shape : {time_idx.shape}")
     print(f"  Output encoding shape: {out_enc.shape}")
 
-    # Kiểm tra: rush_morning (2) và night (0) có encoding khác nhau không?
+    # Kiểm tra: rush_morning (idx=1, theo build_graph.py) và night (idx=0)
+    # có encoding khác nhau không?
     t_night = torch.tensor([0])
-    t_rush = torch.tensor([2])
+    t_rush_morning = torch.tensor([1])
     e_night = enc(t_night)
-    e_rush = enc(t_rush)
+    e_rush = enc(t_rush_morning)
     cos_sim = F.cosine_similarity(e_night, e_rush).item()
     print(f"  Cosine(night, rush_morning): {cos_sim:.4f}")
     print(f"  {'✅ Phân biệt tốt' if cos_sim < 0.9 else '⚠️ Quá giống nhau'}")
