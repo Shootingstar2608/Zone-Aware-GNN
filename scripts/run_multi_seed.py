@@ -4,7 +4,7 @@ run_multi_seed.py
 Chạy lặp lại quá trình huấn luyện với NHIỀU SEED khác nhau để đo độ ổn định
 của từng mô hình, phục vụ báo cáo Mean ± Std và kiểm định ý nghĩa thống kê.
 
-TẠI SAO CẦN FILE RIÊNG THAY VÌ SỬA train.py
+TAI SAO CẦN FILE RIÊNG THAY VÌ SỬa train.py
 -------------------------------------------
 1. `train.py` đang fix cứng seed 42 ở HAI chỗ (set_seed và generator của
    random_split). Sửa trực tiếp sẽ làm mọi kết quả cũ không tái lập được.
@@ -14,7 +14,7 @@ TẠI SAO CẦN FILE RIÊNG THAY VÌ SỬA train.py
    train_one_epoch, evaluate...) nên nếu nhóm đổi kiến trúc/loss/optimizer,
    script này tự động kế thừa, không bị lệch pha.
 
-TÁCH RỜI HUẤN LUYỆN VÀ THỐNG KÊ
+TACH RỜI HUẤN LUYỆN VA THỐNG KÊ
 -------------------------------
 File này CHỈ sinh dữ liệu thô: mỗi lần train = 1 dòng trong
 `data/results/multiseed_runs.csv`. Việc tính Mean±Std, t-test, p-value nằm ở
@@ -23,28 +23,42 @@ tốn vài giây — tách ra để chỉnh cách phân tích mà không phải 
 
 BA GIAO THỨC CHIA DỮ LIỆU (--split-modes)
 -----------------------------------------
-  random_fixed  : chia ngẫu nhiên, seed chia CỐ ĐỊNH = 42 cho mọi lần chạy.
+
+  ╔═════════════════════════════════════════════════════════════════╗
+  ║  PIPELINE «LEGACY»  (KÔNG KHUYẾN DÙNG khi báo cáo paper)      ║
+  ║  random_fixed / random_paired — chia NGẠU NHIÊN                  ║
+  ║  => Có data leakage do sliding window chồng lấp                 ║
+  ║  => Chỉ dùng để so sánh lịch sử với kết quả cũ                ║
+  ╚═════════════════════════════════════════════════════════════════╝
+
+  random_fixed  : chia ngỪu nhiên, seed chia CỐ ĐỊNH = 42 cho mọi lần chạy.
                   -> Chỉ có khởi tạo mô hình thay đổi. Tái lập đúng giao thức
-                     hiện tại của train.py. Test set giống hệt nhau giữa các
-                     model => so sánh trực tiếp được, nhưng kết luận chỉ đúng
-                     trên MỘT split. Kiểm định phù hợp: Welch t-test (độc lập).
+                  hiện tại của train.py. Test set giống hệt nhau giữa các
+                  model => so sánh trực tiếp được, nhưng kết luận chỉ đúng
+                  trên MỘT split. Kiểm định phù hợp: Welch t-test (độc lập).
 
-  random_paired : chia ngẫu nhiên, seed chia = seed của lần chạy.
+  random_paired : chia ngỪu nhiên, seed chia = seed của lần chạy.
                   -> Mỗi seed cho một split khác nhau, NHƯNG mọi model đều dùng
-                     chung split đó ở cùng seed => ghép cặp được theo seed.
-                     Kiểm định phù hợp: paired t-test (mạnh hơn vì khử được
-                     nhiễu do "split dễ/khó"). Kết luận rộng hơn: "tốt hơn trên
-                     một split bất kỳ".
+                  chung split đó ở cùng seed => ghép cặp được theo seed.
+                  Kiểm định phù hợp: paired t-test (mạnh hơn vì khử được
+                  nhiễu do "split dễ/khó"). Kết luận rộng hơn.
 
-  chrono        : chia theo THỜI GIAN (70% đầu / 10% giữa / 20% cuối).
-                  -> Không có rò rỉ thời gian. Đây là giao thức chuẩn của
-                     DCRNN / STGCN / Graph WaveNet. Xem cảnh báo ở cuối file.
+  ╔═════════════════════════════════════════════════════════════════╗
+  ║  PIPELINE «CLEAN»  (KHUYẾN DÙNG cho mọi báo cáo chính thức)    ║
+  ║  chrono — chia theo THỜI GIAN + purge gap (= T_in + T_out - 1) ║
+  ║  => Không có data leakage, đúng giao thức DCRNN/STGCN/WaveNet   ║
+  ║  => Đây là con số nên đưa vào paper                            ║
+  ╚═════════════════════════════════════════════════════════════════╝
+
+  chrono        : chia theo THỜI GIAN (70%/10%/20%) + purge gap giữa các tập.
+                  -> Không có rò rỉ thời gian, không chồng lấp cửa sổ.
+                  Đây là giao thức chuẩn của DCRNN / STGCN / Graph WaveNet.
 
 Chạy:
-  python scripts/run_multi_seed.py                       # mặc định: 9 model, 5 seed, 2 mode
-  python scripts/run_multi_seed.py --models proposed     # chỉ 4 model chính
-  python scripts/run_multi_seed.py --split-modes chrono  # kiểm chứng không rò rỉ
-  python scripts/run_multi_seed.py --resume              # chạy tiếp sau khi bị ngắt
+  python scripts/run_multi_seed.py                          # mặc định: 9 model, 5 seed, 2 mode
+  python scripts/run_multi_seed.py --models proposed        # chỉ 4 model chính
+  python scripts/run_multi_seed.py --split-modes chrono     # pipeline CLEAN — dùng khi báo cáo
+  python scripts/run_multi_seed.py --resume                 # chạy tiếp sau khi bị ngắt
   python scripts/run_multi_seed.py --epochs 5 --seeds 0 1   # smoke test nhanh
 """
 
@@ -80,12 +94,14 @@ from scripts.train import (  # noqa: E402
     TRAIN_RATIO,
     VAL_RATIO,
     build_model,
+    chronological_split,   # Tôn — pipeline CLEAN
     compute_metrics,
     compute_zone_stratified_metrics,
     evaluate,
     set_seed,
     train_one_epoch,
 )
+from utils.normalizer import ZScoreNormalizer  # Tôn — Z-Score normalization
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -112,34 +128,50 @@ RUN_KEY = ["variant", "seed", "split_mode"]
 # ══════════════════════════════════════════════════════════════
 # CHIA DỮ LIỆU
 # ══════════════════════════════════════════════════════════════
-def make_splits(full_ds, S: int, split_mode: str, seed: int):
+def make_splits(full_ds, S: int, split_mode: str, seed: int, meta: dict):
     """
-    Trả về (train_ds, val_ds, test_ds, split_seed_used).
+    Trả về (train_idx, val_idx, test_idx, split_seed_used).
 
-    Điểm mấu chốt của toàn bộ script nằm ở đây: `split_seed` quyết định việc
-    kiểm định thống kê sau này là PAIRED hay INDEPENDENT.
+    Trả về INDEX thay vì Subset để caller fit normalizer đúng trước khi
+    tạo DataLoader. Điểm mấu chốt: split_seed quyết định kiểm định
+    thống kê sau này là PAIRED hay INDEPENDENT.
+
+    NOTE: mode random_fixed / random_paired thuộc pipeline «LEGACY»
+          (có data leakage). Chỉ dùng để so sánh lịch sử. Pipeline
+          chuẩn để báo cáo paper là mode 'chrono'.
     """
     n_train = int(S * TRAIN_RATIO)
-    n_val = int(S * VAL_RATIO)
-    n_test = S - n_train - n_val
+    n_val   = int(S * VAL_RATIO)
+    n_test  = S - n_train - n_val
 
+    # ══════════════════════════════════════════════════════════════════
+    #  PIPELINE «CLEAN» — DÙNG CHO BÁO CÁO PAPER
+    # ══════════════════════════════════════════════════════════════════
     if split_mode == "chrono":
-        # Chia theo thứ tự thời gian: không xáo trộn -> không rò rỉ tương lai.
-        idx = np.arange(S)
-        train_ds = Subset(full_ds, idx[:n_train].tolist())
-        val_ds = Subset(full_ds, idx[n_train : n_train + n_val].tolist())
-        test_ds = Subset(full_ds, idx[n_train + n_val :].tolist())
-        return train_ds, val_ds, test_ds, None
+        purge_gap = meta["T_in"] + meta["T_out"] - 1
+        train_idx, val_idx, test_idx = chronological_split(
+            S, TRAIN_RATIO, VAL_RATIO, purge_gap=purge_gap
+        )
+        return train_idx, val_idx, test_idx, None
 
-    # random_fixed  -> mọi seed dùng chung split 42 (giống train.py gốc)
-    # random_paired -> split đi theo seed, các model ghép cặp được theo seed
+    # ══════════════════════════════════════════════════════════════════
+    #  PIPELINE «LEGACY» — random_fixed / random_paired
+    #  CẢNH BÁO: có data leakage do sliding window chồng lấp.
+    #  Chỉ dùng để so sánh lịch sử với kết quả cũ. KHÔNG đưa vào paper.
+    # ══════════════════════════════════════════════════════════════════
     split_seed = 42 if split_mode == "random_fixed" else seed
-    train_ds, val_ds, test_ds = random_split(
-        full_ds,
+    tmp_ds = TensorDataset(
+        torch.arange(S)  # dummy, chỉ cần lấy index
+    )
+    tmp_train, tmp_val, tmp_test = random_split(
+        tmp_ds,
         [n_train, n_val, n_test],
         generator=torch.Generator().manual_seed(split_seed),
     )
-    return train_ds, val_ds, test_ds, split_seed
+    train_idx = list(tmp_train.indices)
+    val_idx   = list(tmp_val.indices)
+    test_idx  = list(tmp_test.indices)
+    return train_idx, val_idx, test_idx, split_seed
 
 
 # ══════════════════════════════════════════════════════════════
@@ -169,8 +201,25 @@ def run_once(
     Z = dataset["Z"].to(DEVICE)
     S = X.size(0)
 
+    # ── Split (trả về index để fit normalizer đúng trước) ──────────────────
     full_ds = TensorDataset(X, Y, TL)
-    train_ds, val_ds, test_ds, split_seed = make_splits(full_ds, S, split_mode, seed)
+    train_idx, val_idx, test_idx, split_seed = make_splits(
+        full_ds, S, split_mode, seed, meta
+    )
+
+    # ── Z-Score Normalization — fit CHỈ trên train_idx (mỗi seed riêng) ──
+    x_normalizer = ZScoreNormalizer()
+    x_normalizer.fit(X[train_idx])
+    y_normalizer = ZScoreNormalizer()
+    y_normalizer.fit(Y[train_idx])
+
+    X_norm = x_normalizer.transform(X)
+    Y_norm = y_normalizer.transform(Y)
+
+    full_ds_norm = TensorDataset(X_norm, Y_norm, TL)
+    train_ds = Subset(full_ds_norm, train_idx)
+    val_ds   = Subset(full_ds_norm, val_idx)
+    test_ds  = Subset(full_ds_norm, test_idx)
 
     # Generator riêng cho DataLoader: đảm bảo thứ tự batch tái lập được 100%
     loader_gen = torch.Generator().manual_seed(seed)
@@ -192,7 +241,9 @@ def run_once(
         last_epoch = epoch
         train_loss = train_one_epoch(model, train_loader, optimizer, A, Z, DEVICE)
         val_preds, val_trues = evaluate(model, val_loader, A, Z, DEVICE)
-        val_metrics = compute_metrics(val_preds, val_trues)
+        val_preds_real = y_normalizer.inverse_transform(val_preds)
+        val_trues_real = y_normalizer.inverse_transform(val_trues)
+        val_metrics = compute_metrics(val_preds_real, val_trues_real)
         scheduler.step(val_metrics["MAE"])
 
         if verbose and epoch % 20 == 0:
@@ -211,9 +262,14 @@ def run_once(
 
     model.load_state_dict(best_state)
     test_preds, test_trues = evaluate(model, test_loader, A, Z, DEVICE)
-    test_metrics = compute_metrics(test_preds, test_trues)
+
+    # ── Inverse-transform về đơn vị gốc trước khi tính metric ────────────
+    test_preds_real = y_normalizer.inverse_transform(test_preds)
+    test_trues_real = y_normalizer.inverse_transform(test_trues)
+
+    test_metrics = compute_metrics(test_preds_real, test_trues_real)
     zone_metrics = compute_zone_stratified_metrics(
-        test_preds, test_trues, Z.cpu(), meta["zone_types"]
+        test_preds_real, test_trues_real, Z.cpu(), meta["zone_types"]
     )
 
     # Mặc định KHÔNG lưu checkpoint: 9 model × 5 seed × 3 mode = 135 file,
