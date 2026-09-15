@@ -26,7 +26,7 @@ tại sao chúng không hỏng, chỉ sai giả định về dữ liệu. Đừn
 
 | Thư mục | Người | Nội dung |
 |---|---|---|
-| [`khoa/`](khoa/) | Khoa (Người 2) | Provenance dataset, 2 bugfix chặn, thiết kế bộ sinh phân vùng Non-IID |
+| [`khoa/`](khoa/) | Khoa (Người 2) | Provenance dataset, 2 bugfix chặn, bộ sinh phân vùng Non-IID, input masking v2 + unit tests |
 
 ---
 

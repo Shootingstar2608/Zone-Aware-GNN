@@ -9,6 +9,7 @@ Mỗi file ghi lại: **lỗi gì / vì sao phải sửa / vì sao sửa theo c�
 | [`01_bugfix_train_lambda_cos.md`](01_bugfix_train_lambda_cos.md) | `train.py` crash ngay khi chạy (`NameError` + `TypeError` quanh `lambda_cos`) | 🔴 Chặn |
 | [`02_bugfix_time_label_map.md`](02_bugfix_time_label_map.md) | `TIME_LABEL_MAP` nuốt mất nhãn giờ cao điểm — `time_labels` chỉ còn `{0, 3}` | 🟠 Cao |
 | [`03_benchmark_partition_design.md`](03_benchmark_partition_design.md) | Thiết kế bộ sinh phân vùng Non-IID: Dirichlet chia **độ phủ thời gian theo node**, spec chống rò rỉ, contract cho Người 4 | 🟠 Cao |
+| [`04_input_masking_v2.md`](04_input_masking_v2.md) | Input Masking v2 — che đặc trưng đầu vào, vì sao nội suy **không** ép được model học đồ thị, 27 unit test | 🟠 Cao |
 
 ---
 

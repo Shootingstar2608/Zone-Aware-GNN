@@ -503,3 +503,112 @@ def save_partitions(records, path: str = OUT_PATH) -> None:
 def load_partitions(path: str = OUT_PATH) -> list:
     with open(path) as f:
         return json.load(f)["partitions"]
+
+# ══════════════════════════════════════════════════════════════
+# INPUT MASKING v2 — che DAC TRUNG dau vao, khong chi che loss
+# ══════════════════════════════════════════════════════════════
+def apply_input_mask(X, mask, meta: dict, strategy: str = "flag",
+                     A=None, fill_value: float = 0.0):
+    """Che dac trung dau vao cua nhung (cua so, node) khong co du lieu.
+
+    v1 (loss masking) chi bo cham diem node thieu du lieu -- dac trung cua no
+    VAN nam trong input, nen model khong he bi ep phai suy tu hang xom.
+    v2 che luon input: do moi la bai test that.
+
+    Tham so
+    -------
+    X    : (S, N, T_in*F) -- torch.Tensor hoac np.ndarray
+    mask : (S, N) bool    -- True = node CO du lieu tai cua so do
+    strategy :
+        "flag"      Them 1 kenh availability => F -> F+1. Dac trung bi che
+                    dat ve fill_value, kenh moi bao 1/0. Model PHAN BIET duoc
+                    "khong co du lieu" voi "duong thoang". MAC DINH.
+        "zero"      Chi dat ve fill_value, khong co kenh bao. Baseline ngay tho:
+                    model khong phan biet duoc thieu du lieu voi gia tri that.
+        "neighbor"  Noi suy tu hang xom theo A. XEM CANH BAO BEN DUOI.
+        "last_seen" Lay lai gia tri quan sat gan nhat cua chinh node do.
+
+    CANH BAO ve "neighbor"
+    ----------------------
+    Plan goi y "thay the bang gia tri noi suy de ep model khai thac Zone
+    Adjacency". Nhung neu TA noi suy ho thi model KHONG CAN hoc cach dung do
+    thi nua -- ta da lam ho no roi. Noi suy lam bai toan DE DI, khong kho len.
+    Chi "flag" moi that su ep model phai tu suy tu hang xom.
+
+    => Dung "flag" lam mac dinh (dieu kien thi nghiem chinh), con "neighbor"
+       va "last_seen" la BASELINE de so sanh: chung la can tren cua viec noi
+       suy thu cong, va model zone-aware phai vuot duoc chung moi co y nghia.
+
+    Tra ve
+    ------
+    X_masked : (S, N, T_in*F) -- hoac (S, N, T_in*(F+1)) khi strategy="flag"
+    info     : dict -- ti le bi che, F moi, ...
+    """
+    is_torch = hasattr(X, "detach")
+    Xn = X.detach().cpu().numpy().copy() if is_torch else np.array(X, copy=True)
+    m = np.asarray(mask, dtype=bool)
+
+    S, N, flat = Xn.shape
+    T_in, F = meta["T_in"], meta["F"]
+    if T_in * F != flat:
+        raise ValueError(f"X co {flat} cot nhung T_in*F = {T_in}*{F} = {T_in*F}")
+    if m.shape != (S, N):
+        raise ValueError(f"mask phai co shape ({S}, {N}), nhan duoc {m.shape}")
+
+    x = Xn.reshape(S, N, T_in, F)          # layout cua build_graph.py
+    missing = ~m                            # (S, N)
+
+    if strategy == "neighbor":
+        if A is None:
+            raise ValueError("strategy='neighbor' can ma tran ke A")
+        An = A.detach().cpu().numpy() if hasattr(A, "detach") else np.asarray(A)
+        for s in np.flatnonzero(missing.any(axis=1)):
+            avail = m[s]                                    # (N,)
+            if not avail.any():
+                x[s][missing[s]] = fill_value
+                continue
+            w = An[:, avail]                                # (N, n_avail)
+            denom = w.sum(axis=1, keepdims=True)
+            src = x[s][avail]                               # (n_avail, T_in, F)
+            interp = np.einsum("nk,ktf->ntf", w, src)
+            interp = np.divide(interp, denom[:, :, None],
+                               out=np.full_like(interp, fill_value),
+                               where=denom[:, :, None] > 0)
+            x[s][missing[s]] = interp[missing[s]]
+    elif strategy == "last_seen":
+        for v in range(N):
+            last = None
+            for s in range(S):
+                if m[s, v]:
+                    last = x[s, v].copy()
+                elif last is not None:
+                    x[s, v] = last
+                else:
+                    x[s, v] = fill_value
+    elif strategy in ("flag", "zero"):
+        x[missing] = fill_value
+    else:
+        raise ValueError(f"strategy khong hop le: {strategy!r}")
+
+    if strategy == "flag":
+        avail_ch = np.broadcast_to(m[:, :, None, None].astype(x.dtype),
+                                   (S, N, T_in, 1))
+        x = np.concatenate([x, avail_ch], axis=3)          # F -> F+1
+        F_out = F + 1
+    else:
+        F_out = F
+
+    out = x.reshape(S, N, T_in * F_out)
+    if is_torch:
+        import torch
+        out = torch.tensor(out, dtype=X.dtype)
+
+    info = {
+        "strategy": strategy,
+        "F_in": int(F), "F_out": int(F_out),
+        "in_channels": int(T_in * F_out),
+        "frac_masked": float(missing.mean()),
+        "n_fully_dark_nodes": int((~m).all(axis=0).sum()),
+        "fill_value": float(fill_value),
+    }
+    return out, info
