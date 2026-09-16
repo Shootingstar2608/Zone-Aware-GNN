@@ -228,3 +228,187 @@ Người 4 cần biết trước, đừng để phát hiện lúc đang viết:
   thể còn < 10 cửa sổ ⇒ metric trên node đó nhiễu rất mạnh. Cần report khoảng tin cậy,
   không report điểm.
 - Toàn bộ chuỗi traffic là **mô phỏng**, không phải đo đạc (xem `docs/00`).
+
+---
+
+# 9. Kết quả triển khai (P1–P4) — cập nhật sau khi code xong
+
+Phần trên là **thiết kế**. Phần này là **cái thực sự chạy được**, kèm những chỗ thiết kế
+phải đổi vì va vào dữ liệu thật.
+
+## 9.1. P1 `quantity_skew` — chốt `mode="fixed_coverage"`
+
+### Vấn đề phát hiện lúc code
+
+Clip $n_v$ ở trần $S$ làm **bốc hơi ngân sách**: ở $\alpha$ nhỏ, node top đòi $n_v \gg S$,
+phần thừa bị cắt và vứt đi. Hệ quả là $\alpha$ nhỏ vừa **lệch hơn** vừa **ít dữ liệu tổng
+thể hơn** — trục $x$ của figure Người 4 trộn hai biến, MAE tăng thì không biết do cái nào.
+
+### Cách sửa: water-filling (`_water_fill`)
+
+Phần vượt trần được **chia lại** cho các node chưa đầy, lặp đến khi không ai vượt. Lặp chứ
+không một lượt, vì chia lại có thể đẩy node khác chạm trần. Làm tròn kiểu
+largest-remainder để tổng khớp $B$ (dùng `floor` thuần sẽ hụt tới $N$ đơn vị).
+
+Khả thi luôn đảm bảo khi $B \le N \cdot S$.
+
+### Bảng quét — `scripts/dev/sweep_quantity_skew.py`
+
+```
+mode             alpha         coverage             gini   n_zero
+------------------------------------------------------------------
+budget             0.1      1.000±0.000      0.000±0.000      0.0
+budget             5.0      1.000±0.000      0.000±0.000      0.0
+
+relative           0.1      0.113±0.031      0.829±0.045      8.3
+relative           0.5      0.211±0.055      0.587±0.064      0.9
+relative           1.0      0.345±0.077      0.453±0.070      0.1
+relative           5.0      0.556±0.081      0.199±0.049      0.0
+
+fixed_coverage     0.1      0.500±0.000      0.487±0.011      3.7
+fixed_coverage     0.5      0.500±0.000      0.416±0.031      0.3
+fixed_coverage     1.0      0.500±0.000      0.387±0.032      0.0
+fixed_coverage     5.0      0.500±0.000      0.198±0.049      0.0
+```
+
+| mode | Kết luận |
+|---|---|
+| `budget` ($B = NS$) | **Thoái hoá.** $B$ đúng bằng trần tuyệt đối nên water-filling buộc mọi node phải đầy ⇒ Gini = 0 ở mọi $\alpha$. Cách đọc (a) tự sụp khi có phân phối lại. |
+| `relative` | **Confounded.** Coverage chạy 0.113 → 0.556 song song với Gini. |
+| `fixed_coverage` | ✅ **Chọn.** Coverage `0.500 ± 0.000` ở mọi $\alpha$, Gini vẫn trải 0.198 → 0.487. Đúng một biến thay đổi. |
+
+Hai mode kia **giữ lại** làm robustness check cho appendix ("kết luận không đổi khi định
+nghĩa skew khác đi").
+
+### Tradeoff của $\bar c$
+
+`fixed_coverage` cho dải Gini hẹp hơn `relative` (0.289 so với 0.629). Nguyên nhân có công thức:
+
+$$\text{số node tối thiểu phải có dữ liệu} = \lceil \bar c \cdot N \rceil$$
+
+Với $\bar c = 0.5$, $N = 17$ ⇒ ít nhất 9 node có dữ liệu ⇒ **tối đa 8 node tối om** ⇒ Gini
+chặn trên ~0.5. Hạ $\bar c$ thì nới được dải: $\bar c = 0.25$ cho phép tới 12 node tối om.
+
+$\bar c$ **cố định cho toàn bộ paper**, không phải biến sweep. Biến sweep là $\alpha$.
+
+## 9.2. P2 `temporal_shift` — mất một kịch bản
+
+### ✅ `weekday_to_weekend`
+
+```
+train  0..338    (339)  dow 0-3
+       <- gap 36 ->
+val    374..433  (60)   dow 4
+       <- gap 36 ->
+test   469..636  (168)  dow 5,6
+burn   70 cửa sổ vào 2 khoảng gap
+```
+
+**Val lấy từ phân phối TRAIN (weekday), không lấy từ weekend.** Nếu val là weekend thì
+early-stopping và chọn hyperparameter đang nhìn thấy phân phối test — leakage kiểu khác,
+tinh vi hơn, và nó phá đúng thứ benchmark distribution-shift muốn đo.
+
+Split dựng **lùi từ test** vì test là tài nguyên khan hiếm cố định (168 cửa sổ). Dựng xuôi
+thì train ăn hết chỗ, test bị teo.
+
+Kích thước train **thay đổi theo horizon** — phải nói rõ trong paper, đừng so MAE giữa các
+$T_{out}$ mà lờ đi:
+
+| $T_{out}$ | gap | train | val | test | burned |
+|---|---|---|---|---|---|
+| 3 | 14 | 381 | 60 | 168 | 28 |
+| 6 | 17 | 375 | 60 | 168 | 34 |
+| 12 | 23 | 363 | 60 | 168 | 46 |
+| 24 | 35 | 339 | 60 | 168 | 70 |
+
+### ❌ `normal_to_rush` — BẤT KHẢ THI, đã bỏ
+
+```
+gap=35 (T_out=24)  -> normal còn lại sau purge:   0/449
+gap=14 (T_out=3)   -> normal còn lại sau purge: 112/449
+```
+
+**Nguyên nhân cấu trúc:** rush và normal xen kẽ theo chu kỳ ~6 giờ, trong khi một cửa sổ
+input đã dài $T_{in} \times 15\text{ph} = 3$ giờ, cộng horizon nữa. Cao điểm sáng kết thúc
+9:59, cao điểm chiều bắt đầu 16:00 — cách nhau 6 giờ = 24 cửa sổ, **nhỏ hơn** gap 35. Mọi
+cửa sổ normal ở giữa nằm trong vùng cấm của cả hai đầu.
+
+Ngay cả ở $T_{out} = 3$, 112 cửa sổ sống sót **toàn bộ là đêm sâu** (00:00–03:30 và
+23:30–24:00) — chỗ duy nhất cách rush đủ xa. Kịch bản biến thành *"đêm → cao điểm"*, một
+claim khác hẳn và yếu hơn nhiều.
+
+### Thay bằng `rush_mask()` — metric, không phải partition
+
+Chia train/val/test theo thứ tự thời gian bình thường (có gap), rồi **báo cáo MAE riêng**
+cho cửa sổ rush vs non-rush trong test — giống hệt cách `compute_zone_stratified_metrics`
+đã làm trong `train.py`. Không leakage vì split là chronological, không purge gì cả, và
+vẫn trả lời đúng câu hỏi gốc: *"model có tệ đi vào giờ cao điểm không?"*
+
+⚠️ Plan gốc (`Plan tuần tiếp theo.docx`) có liệt kê kịch bản này. **Người 4 phải biết
+trước khi viết Data Card.**
+
+## 9.3. P3 `zone_skew` — giữ số mẫu đều để trực giao
+
+Số cửa sổ mỗi node **bằng nhau tuyệt đối** ($\bar c \cdot S = 318$), chỉ khác **cửa sổ
+nào**: mỗi cụm quan sát một khung giờ khác nhau. Đo được `gini = 0.00000` ở mọi cấu hình.
+
+Nhờ vậy hai cơ chế **trực giao**: `quantity_skew` đổi *bao nhiêu*, `zone_skew` đổi *phân
+phối đặc trưng*. Người 4 sweep từng cái mà không lẫn nhau.
+
+| `off_band_weight` | JSD giữa cụm |
+|---|---|
+| 1.0 (không lệch) | 0.0050 |
+| 0.5 | 0.0342 |
+| **0.1 (mặc định)** | **0.2010** |
+| 0.01 | 0.2478 |
+| 0.0 | `ValueError` — khung giờ không đủ chứa $n_{keep}$ |
+
+### Vấn đề: cụm tự động rất mất cân bằng
+
+```
+k=2  sizes=[16, 1]       jsd=0.3500
+k=3  sizes=[13, 3, 1]    jsd=0.2010
+k=4  sizes=[11, 3, 1, 2] jsd=0.1231
+```
+
+High Tech Park (chỉ có mỗi `industrial`) luôn tách thành cụm 1 node. Lý do: 17 node có
+vector zone quá giống nhau — đa số là hỗn hợp commercial + residential. Clustering tự động
+trên dữ liệu như vậy chỉ ra được một khối lớn cộng vài node lẻ.
+
+**Khuyến nghị: dùng gán cụm thủ công** qua tham số `labels`, đúng như plan gốc gợi ý
+("cụm Giáo dục/Dân cư vs Công nghiệp/Giao thông"):
+
+```
+sizes [14, 3]  jsd 0.3452  gini 0.0
+cụm 1: High Tech Park, Suoi Tien, Tan Son Nhat Airport
+```
+
+JSD cao hơn hẳn `k=3` tự động (0.345 vs 0.201) và cụm có nghĩa rõ ràng. Ghi tiêu chí gán
+vào paper.
+
+## 9.4. P4 `concept_drift` — trả về SPEC, không sửa tensor
+
+Hàm trả về mô tả sự cố để `generate_synthetic_traffic.py` áp ở **tầng sinh dữ liệu**, nhờ
+vậy `traffic_delay_s` / `travel_time_s` / `congestion_ratio` dịch chuyển **nhất quán về
+vật lý**.
+
+Sửa thẳng tensor thì phải tự tay giữ quan hệ giữa ba trường đó; sai một cái là model học
+được quan hệ phi vật lý, và kết quả vô nghĩa.
+
+`profile` là hệ số nhân hình thang: lên dần `ramp`, giữ `duration`, xuống dần. Sự cố đặt
+**trong test set** — drift phải là thứ model chưa từng thấy lúc train.
+
+## 9.5. Lỗi đã gặp và cách xử lý
+
+| Lỗi | Triệu chứng | Cách sửa |
+|---|---|---|
+| `mask[idx, v] = True` bị thiếu | **Không crash**, chỉ trả mask rỗng và stats toàn 0 | Thêm dòng gán |
+| Khối `if mode` chết + đảo ngược | Bị dòng dưới ghi đè nên không sai kết quả, nhưng mang thông tin sai | Xoá, thay bằng `ValueError` khi mode lạ |
+| `if n[v] > n_slots` | So sánh nhầm đơn vị (cửa sổ vs khối) ⇒ raise nhầm | Đổi sang `k > n_slots`, rồi bỏ hẳn |
+| `S // block_len` vứt phần dư | Node cần phủ 100% không dựng nổi (636 < 637) | Khối cuối được phép ngắn hơn ⇒ tổng sức chứa = $S$ |
+| `stats` thiếu `mode`, `c_bar` | `partitions_meta.json` không tự mô tả được chính nó | Thêm 2 trường |
+| Stub `concept_drift` trùng lặp | Định nghĩa sau ghi đè bản thật ⇒ vẫn `NotImplementedError` | Xoá stub cũ |
+
+> Bài học chung: **`stats` đếm từ `mask` chứ không từ `n`** là thứ phát hiện ra lỗi số 1.
+> Nếu đếm từ `n` thì stats vẫn đẹp long lanh trong khi mask rỗng — và Người 4 sẽ train
+> trên mask trống mà không hiểu tại sao mọi model đều như nhau.
