@@ -1,0 +1,46 @@
+% Sinh tự động bởi scripts/stat_analysis.py
+% split_mode = random_fixed, n = 10 seeds
+\begin{table}[t]
+\centering
+\caption{Kết quả trên tập test, trung bình $\pm$ độ lệch chuẩn trên 10 seed ngẫu nhiên. Ký hiệu $^{*}$/$^{**}$/$^{***}$ chỉ mức $p<0.05$/$0.01$/$0.001$ so với baseline mạnh nhất (GCN-GRU), t-test đã hiệu chỉnh Holm.}
+\label{tab:main-results-random-fixed}
+\begin{tabular}{lccc}
+\toprule
+Model & MAE & RMSE & MAPE \\
+\midrule
+LSTM & 0.2249 $\pm$ 0.0105 & 0.3300 $\pm$ 0.0275 & 15.7246 $\pm$ 0.5747 \\
+STGCN & 0.0948 $\pm$ 0.0038 & 0.1681 $\pm$ 0.0060 & 6.6292 $\pm$ 0.2957 \\
+GCN-GRU & 0.0936 $\pm$ 0.0017 & 0.1651 $\pm$ 0.0037 & 6.6047 $\pm$ 0.1662 \\
+AH-GNN (no zone) & 0.2032 $\pm$ 0.0323 & 0.3320 $\pm$ 0.0965 & 15.3583 $\pm$ 2.4364 \\
+\; + zone concat & \textbf{0.0784} $\pm$ \textbf{0.0056} & \textbf{0.1340} $\pm$ \textbf{0.0059} & \textbf{5.8317} $\pm$ \textbf{0.3874} \\
+\; + zone weight & 0.0932 $\pm$ 0.0120 & 0.1526 $\pm$ 0.0158 & 6.8938 $\pm$ 0.8057 \\
+Zone-Aware AH-GNN & 0.0918 $\pm$ 0.0103 & 0.1467 $\pm$ 0.0120 & 6.9055 $\pm$ 0.7403 \\
+\; + sinusoidal time & 0.0801 $\pm$ 0.0038$^{***}$ & 0.1364 $\pm$ 0.0051$^{***}$ & 5.9893 $\pm$ 0.2649$^{***}$ \\
+\; + time-conditioned & 0.0824 $\pm$ 0.0077$^{**}$ & 0.1399 $\pm$ 0.0113$^{***}$ & 6.1706 $\pm$ 0.5361$^{*}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% Sinh tự động bởi scripts/stat_analysis.py
+% split_mode = random_paired, n = 10 seeds
+\begin{table}[t]
+\centering
+\caption{Kết quả trên tập test, trung bình $\pm$ độ lệch chuẩn trên 10 seed ngẫu nhiên. Ký hiệu $^{*}$/$^{**}$/$^{***}$ chỉ mức $p<0.05$/$0.01$/$0.001$ so với baseline mạnh nhất (GCN-GRU), t-test đã hiệu chỉnh Holm.}
+\label{tab:main-results-random-paired}
+\begin{tabular}{lccc}
+\toprule
+Model & MAE & RMSE & MAPE \\
+\midrule
+LSTM & 0.2119 $\pm$ 0.0156 & 0.3014 $\pm$ 0.0217 & 15.3458 $\pm$ 1.1572 \\
+STGCN & 0.0951 $\pm$ 0.0078 & 0.1807 $\pm$ 0.0120 & 6.6705 $\pm$ 0.6355 \\
+GCN-GRU & 0.0941 $\pm$ 0.0085 & 0.1791 $\pm$ 0.0139 & 6.6474 $\pm$ 0.6661 \\
+AH-GNN (no zone) & 0.2026 $\pm$ 0.0408 & 0.3854 $\pm$ 0.2332 & 15.5060 $\pm$ 3.1718 \\
+\; + zone concat & \textbf{0.0828} $\pm$ \textbf{0.0125} & \textbf{0.1462} $\pm$ \textbf{0.0178} & \textbf{6.1753} $\pm$ \textbf{0.8832} \\
+\; + zone weight & 0.0978 $\pm$ 0.0095 & 0.1666 $\pm$ 0.0195 & 7.1755 $\pm$ 0.6411 \\
+Zone-Aware AH-GNN & 0.0953 $\pm$ 0.0091 & 0.1587 $\pm$ 0.0144 & 7.1307 $\pm$ 0.6784 \\
+\; + sinusoidal time & 0.0841 $\pm$ 0.0109$^{**}$ & 0.1477 $\pm$ 0.0167$^{***}$ & 6.2765 $\pm$ 0.7471 \\
+\; + time-conditioned & 0.0874 $\pm$ 0.0100 & 0.1506 $\pm$ 0.0162$^{***}$ & 6.5581 $\pm$ 0.7285 \\
+\bottomrule
+\end{tabular}
+\end{table}
+

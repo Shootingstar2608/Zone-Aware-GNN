@@ -11,7 +11,7 @@ Kiến trúc:
   4. TemporalGRU        — xử lý chuỗi thời gian
 
 Variants:
-  - TimeZoneAwareAHGNN     — dùng nn.Embedding cho time (Tân, tuần 1)
+  - TimeZoneAwareAHGNN     — dùng nn.Embedding cho time (Tôn, tuần 1)
   - SinusoidalZoneAwareAHGNN — dùng SeasonalTimeEncoder (Bảo, tuần 2)
 """
 
@@ -121,7 +121,7 @@ class SeasonalTimeEncoder(nn.Module):
 
 
 # ══════════════════════════════════════════════
-# BLOCK 1: Zone Embedding (Tân — tuần 1)
+# BLOCK 1: Zone Embedding (Tôn — tuần 1)
 # ══════════════════════════════════════════════
 class TimeZoneEmbedding(nn.Module):
     """
@@ -291,7 +291,7 @@ class TimeZoneModulatedGraphConv(nn.Module):
 
 
 # ══════════════════════════════════════════════
-# MODEL 1: TimeZoneAwareAHGNN (Tân — tuần 1)
+# MODEL 1: TimeZoneAwareAHGNN (Tôn — tuần 1)
 # ══════════════════════════════════════════════
 class TimeZoneAwareAHGNN(nn.Module):
     """Dùng nn.Embedding cho time — variant zone_full_tc"""
@@ -492,7 +492,7 @@ if __name__ == "__main__":
     )
 
     models = {
-        "zone_full_tc   (Tân)": TimeZoneAwareAHGNN(**cfg),
+        "zone_full_tc   (Tôn)": TimeZoneAwareAHGNN(**cfg),
         "zone_full_sinc (Bảo)": SinusoidalZoneAwareAHGNN(**cfg, d_model=32),
     }
 

@@ -1,0 +1,153 @@
+====================================================================
+  MULTI-SEED SWEEP
+====================================================================
+  Models      : 9 → baseline_ahgnn, zone_concat, zone_weight, zone_full, zone_full_tc, zone_full_sinc, lstm, gcn_gru, stgcn
+  Seeds       : [42, 43, 44, 45, 46]
+  Split modes : ['chrono']
+  Epochs      : 100 (early-stop patience=15)
+  Device      : cpu
+  Bỏ qua      : 0 lần chạy đã có (--resume)
+  Cần chạy    : 45 lần train
+  Ghi vào     : /home/toon/Zone-Aware-GNN/data/results/multiseed_runs.csv
+====================================================================
+
+[  1/45] baseline_ahgnn   seed=42   mode=chrono         | đã chạy   0.0m | còn ~  0.0m
+          MAE=0.2653  RMSE=0.3137  MAPE=20.99%  (18 ep, 2s)
+
+[  2/45] baseline_ahgnn   seed=43   mode=chrono         | đã chạy   0.0m | còn ~  1.4m
+          MAE=0.2663  RMSE=0.3141  MAPE=21.05%  (18 ep, 2s)
+
+[  3/45] baseline_ahgnn   seed=44   mode=chrono         | đã chạy   0.1m | còn ~  1.5m
+          MAE=0.2675  RMSE=0.3121  MAPE=21.22%  (18 ep, 2s)
+
+[  4/45] baseline_ahgnn   seed=45   mode=chrono         | đã chạy   0.1m | còn ~  1.5m
+          MAE=0.2699  RMSE=0.3210  MAPE=21.26%  (19 ep, 3s)
+
+[  5/45] baseline_ahgnn   seed=46   mode=chrono         | đã chạy   0.2m | còn ~  1.7m
+          MAE=0.2714  RMSE=0.3248  MAPE=21.44%  (18 ep, 2s)
+
+[  6/45] zone_concat      seed=42   mode=chrono         | đã chạy   0.2m | còn ~  1.6m
+          MAE=0.2540  RMSE=0.3080  MAPE=18.87%  (21 ep, 4s)
+
+[  7/45] zone_concat      seed=43   mode=chrono         | đã chạy   0.3m | còn ~  1.7m
+          MAE=0.2532  RMSE=0.3160  MAPE=18.59%  (21 ep, 3s)
+
+[  8/45] zone_concat      seed=44   mode=chrono         | đã chạy   0.3m | còn ~  1.7m
+          MAE=0.2549  RMSE=0.3034  MAPE=19.63%  (22 ep, 3s)
+
+[  9/45] zone_concat      seed=45   mode=chrono         | đã chạy   0.4m | còn ~  1.7m
+          MAE=0.2549  RMSE=0.3274  MAPE=18.79%  (25 ep, 4s)
+
+[ 10/45] zone_concat      seed=46   mode=chrono         | đã chạy   0.4m | còn ~  1.7m
+          MAE=0.2490  RMSE=0.2960  MAPE=18.68%  (21 ep, 3s)
+
+[ 11/45] zone_weight      seed=42   mode=chrono         | đã chạy   0.5m | còn ~  1.7m
+          MAE=0.2611  RMSE=0.3069  MAPE=19.77%  (17 ep, 3s)
+
+[ 12/45] zone_weight      seed=43   mode=chrono         | đã chạy   0.5m | còn ~  1.6m
+          MAE=0.2514  RMSE=0.2980  MAPE=19.04%  (17 ep, 3s)
+
+[ 13/45] zone_weight      seed=44   mode=chrono         | đã chạy   0.6m | còn ~  1.6m
+          MAE=0.2526  RMSE=0.2943  MAPE=19.20%  (18 ep, 2s)
+
+[ 14/45] zone_weight      seed=45   mode=chrono         | đã chạy   0.6m | còn ~  1.5m
+          MAE=0.2502  RMSE=0.3076  MAPE=18.83%  (19 ep, 3s)
+
+[ 15/45] zone_weight      seed=46   mode=chrono         | đã chạy   0.7m | còn ~  1.5m
+          MAE=0.2542  RMSE=0.3130  MAPE=19.05%  (18 ep, 2s)
+
+[ 16/45] zone_full        seed=42   mode=chrono         | đã chạy   0.7m | còn ~  1.4m
+          MAE=0.2537  RMSE=0.2904  MAPE=19.70%  (17 ep, 2s)
+
+[ 17/45] zone_full        seed=43   mode=chrono         | đã chạy   0.7m | còn ~  1.3m
+          MAE=0.2521  RMSE=0.2908  MAPE=19.61%  (17 ep, 2s)
+
+[ 18/45] zone_full        seed=44   mode=chrono         | đã chạy   0.8m | còn ~  1.3m
+          MAE=0.2431  RMSE=0.2867  MAPE=18.91%  (19 ep, 3s)
+
+[ 19/45] zone_full        seed=45   mode=chrono         | đã chạy   0.8m | còn ~  1.2m
+          MAE=0.2461  RMSE=0.2992  MAPE=18.85%  (19 ep, 2s)
+
+[ 20/45] zone_full        seed=46   mode=chrono         | đã chạy   0.9m | còn ~  1.2m
+          MAE=0.2494  RMSE=0.2890  MAPE=19.25%  (17 ep, 2s)
+
+[ 21/45] zone_full_tc     seed=42   mode=chrono         | đã chạy   0.9m | còn ~  1.1m
+          MAE=0.2509  RMSE=0.2937  MAPE=19.13%  (17 ep, 7s)
+
+[ 22/45] zone_full_tc     seed=43   mode=chrono         | đã chạy   1.0m | còn ~  1.2m
+          MAE=0.2431  RMSE=0.2845  MAPE=18.72%  (17 ep, 7s)
+
+[ 23/45] zone_full_tc     seed=44   mode=chrono         | đã chạy   1.1m | còn ~  1.2m
+          MAE=0.2515  RMSE=0.3033  MAPE=19.37%  (18 ep, 8s)
+
+[ 24/45] zone_full_tc     seed=45   mode=chrono         | đã chạy   1.3m | còn ~  1.2m
+          MAE=0.2557  RMSE=0.3128  MAPE=19.70%  (18 ep, 8s)
+
+[ 25/45] zone_full_tc     seed=46   mode=chrono         | đã chạy   1.4m | còn ~  1.2m
+          MAE=0.2483  RMSE=0.2930  MAPE=19.07%  (17 ep, 9s)
+
+[ 26/45] zone_full_sinc   seed=42   mode=chrono         | đã chạy   1.5m | còn ~  1.2m
+          MAE=0.2505  RMSE=0.3023  MAPE=19.94%  (18 ep, 8s)
+
+[ 27/45] zone_full_sinc   seed=43   mode=chrono         | đã chạy   1.7m | còn ~  1.2m
+          MAE=0.2506  RMSE=0.2943  MAPE=19.32%  (17 ep, 7s)
+
+[ 28/45] zone_full_sinc   seed=44   mode=chrono         | đã chạy   1.8m | còn ~  1.2m
+          MAE=0.2471  RMSE=0.2945  MAPE=18.79%  (17 ep, 7s)
+
+[ 29/45] zone_full_sinc   seed=45   mode=chrono         | đã chạy   1.9m | còn ~  1.2m
+          MAE=0.2513  RMSE=0.3021  MAPE=19.57%  (18 ep, 8s)
+
+[ 30/45] zone_full_sinc   seed=46   mode=chrono         | đã chạy   2.1m | còn ~  1.1m
+          MAE=0.2552  RMSE=0.2959  MAPE=20.18%  (17 ep, 8s)
+
+[ 31/45] lstm             seed=42   mode=chrono         | đã chạy   2.2m | còn ~  1.1m
+          MAE=0.2469  RMSE=0.3039  MAPE=18.42%  (17 ep, 2s)
+
+[ 32/45] lstm             seed=43   mode=chrono         | đã chạy   2.2m | còn ~  1.0m
+          MAE=0.2490  RMSE=0.2995  MAPE=18.81%  (17 ep, 2s)
+
+[ 33/45] lstm             seed=44   mode=chrono         | đã chạy   2.3m | còn ~  0.9m
+          MAE=0.2458  RMSE=0.2964  MAPE=18.55%  (17 ep, 2s)
+
+[ 34/45] lstm             seed=45   mode=chrono         | đã chạy   2.3m | còn ~  0.8m
+          MAE=0.2527  RMSE=0.3008  MAPE=19.41%  (17 ep, 2s)
+
+[ 35/45] lstm             seed=46   mode=chrono         | đã chạy   2.3m | còn ~  0.8m
+          MAE=0.2466  RMSE=0.2992  MAPE=18.49%  (17 ep, 2s)
+
+[ 36/45] gcn_gru          seed=42   mode=chrono         | đã chạy   2.4m | còn ~  0.7m
+          MAE=0.2513  RMSE=0.3081  MAPE=18.95%  (17 ep, 2s)
+
+[ 37/45] gcn_gru          seed=43   mode=chrono         | đã chạy   2.4m | còn ~  0.6m
+          MAE=0.2527  RMSE=0.3105  MAPE=18.94%  (17 ep, 2s)
+
+[ 38/45] gcn_gru          seed=44   mode=chrono         | đã chạy   2.4m | còn ~  0.5m
+          MAE=0.2477  RMSE=0.3007  MAPE=18.79%  (17 ep, 2s)
+
+[ 39/45] gcn_gru          seed=45   mode=chrono         | đã chạy   2.4m | còn ~  0.5m
+          MAE=0.2590  RMSE=0.3290  MAPE=19.25%  (19 ep, 2s)
+
+[ 40/45] gcn_gru          seed=46   mode=chrono         | đã chạy   2.5m | còn ~  0.4m
+          MAE=0.2565  RMSE=0.3074  MAPE=19.56%  (17 ep, 2s)
+
+[ 41/45] stgcn            seed=42   mode=chrono         | đã chạy   2.5m | còn ~  0.3m
+          MAE=0.2732  RMSE=0.3430  MAPE=20.38%  (17 ep, 2s)
+
+[ 42/45] stgcn            seed=43   mode=chrono         | đã chạy   2.5m | còn ~  0.2m
+          MAE=0.2655  RMSE=0.3166  MAPE=20.40%  (16 ep, 2s)
+
+[ 43/45] stgcn            seed=44   mode=chrono         | đã chạy   2.6m | còn ~  0.2m
+          MAE=0.2673  RMSE=0.3262  MAPE=20.33%  (16 ep, 2s)
+
+[ 44/45] stgcn            seed=45   mode=chrono         | đã chạy   2.6m | còn ~  0.1m
+          MAE=0.2579  RMSE=0.3113  MAPE=19.68%  (16 ep, 2s)
+
+[ 45/45] stgcn            seed=46   mode=chrono         | đã chạy   2.7m | còn ~  0.1m
+          MAE=0.2640  RMSE=0.3188  MAPE=20.19%  (16 ep, 2s)
+
+====================================================================
+  XONG 45/45 lần chạy trong 2.7 phút
+  → Kết quả thô: /home/toon/Zone-Aware-GNN/data/results/multiseed_runs.csv
+  → Bước tiếp theo: python scripts/stat_analysis.py
+====================================================================

@@ -18,12 +18,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.utils.data import DataLoader, Subset, TensorDataset
 
 # Add parent dir to path
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from utils.normalizer import ZScoreNormalizer  # Tôn — Z-Score module
 
 from models.zone_aware_gnn import ZoneAwareAHGNN  # fix: bỏ T_out
 from models.ah_gnn import AH_GNN
@@ -52,6 +54,23 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 # Bảo — Cosine Regularization (Hướng A)
 LAMBDA_COS = 0.1  # hệ số phạt cosine similarity giữa zone khác nhau
 
+# ══════════════════════════════════════════════════════════════════
+# TÔN — CHRONOLOGICAL SPLIT + NORMALIZATION CONSTANTS
+# Pipeline «CLEAN» (không data leakage): đây là pipeline chuẩn để
+# dùng khi báo cáo kết quả trong paper. Xem hàm chronological_split()
+# và ZScoreNormalizer để biết chi tiết từng bước.
+# ══════════════════════════════════════════════════════════════════
+# Purge gap = T_in + T_out - 1 (tính động từ meta trong run_experiment)
+# Giá trị mặc định tương ứng meta.json hiện tại: T_in=12, T_out=24
+PURGE_GAP_DEFAULT = 35  # = 12 + 24 - 1
+
+# MAPE: loại mẫu có |true| < MAPE_EPS để tránh nhiễu chia-0
+# Y = congestion_ratio ∈ [0,1] → EPS=0.05 loại mẫu dưới 5% congestion
+MAPE_EPS = 0.05
+
+# Đường dẫn lưu stats normalizer để dùng lại lúc inference
+NORMALIZER_DIR = "data/processed"
+
 
 # ──────────────────────────────────────────────
 # ABLATION VARIANTS
@@ -61,7 +80,7 @@ ABLATION_VARIANTS = {
     "zone_concat": (True, False, False),
     "zone_weight": (True, True, False),
     "zone_full": (True, True, True),
-    "zone_full_tc": (True, True, True),  # Tân  — discrete time embedding
+    "zone_full_tc": (True, True, True),  # Tôn  — discrete time embedding
     "zone_full_sinc": (True, True, True),  # Bảo  — sinusoidal time encoder
 }
 
@@ -81,12 +100,31 @@ ZONE_AWARE_VARIANTS = {
 # METRICS
 # ──────────────────────────────────────────────
 def compute_metrics(pred: torch.Tensor, true: torch.Tensor) -> dict:
-    """pred, true: (S, N, T_out)"""
-    mae = (pred - true).abs().mean().item()
+    """
+    pred, true: (S, N, T_out) — ĐÃ inverse-transform về đơn vị gốc.
+
+    MAE  : Mean Absolute Error
+    RMSE : Root Mean Squared Error
+    MAPE : Mean Absolute Percentage Error — chỉ tính trên mẫu |true| >= MAPE_EPS
+           (loại mẫu congestion_ratio < 5% để tránh nhiễu chia-gần-0). (Tôn)
+    WAPE : Weighted Absolute Percentage Error = Σ|err| / Σ|true| × 100
+           Luôn hữu hạn, không bị vô cực kể cả khi nhiều zero. (Tôn)
+    """
+    mae  = (pred - true).abs().mean().item()
     rmse = ((pred - true) ** 2).mean().sqrt().item()
-    mask = true.abs() > 1e-5
-    mape = ((pred - true).abs() / (true.abs() + 1e-8))[mask].mean().item() * 100
-    return {"MAE": mae, "RMSE": rmse, "MAPE": mape}
+
+    # MAPE — ngưỡng MAPE_EPS=0.05 nhất quán: chỉ lọc, chỉ chia trên tập đã lọc
+    mask = true.abs() >= MAPE_EPS
+    if mask.sum() > 0:
+        mape = ((pred - true).abs() / true.abs())[mask].mean().item() * 100
+    else:
+        mape = float("nan")  # không có mẫu hợp lệ (hiếm gặp)
+
+    # WAPE — metric phụ, robust hơn MAPE khi có nhiều zero
+    denom = true.abs().sum().item()
+    wape  = (pred - true).abs().sum().item() / (denom + 1e-8) * 100
+
+    return {"MAE": mae, "RMSE": rmse, "MAPE": mape, "WAPE": wape}
 
 
 def compute_zone_stratified_metrics(pred, true, Z, zone_types) -> dict:
@@ -294,7 +332,7 @@ def build_model(
             num_layers=2,
         )
 
-    # ── Tân: Time-conditioned discrete embedding ──
+    # ── Tôn: Time-conditioned discrete embedding ──
     if variant_name == "zone_full_tc":
         model = TimeZoneAwareAHGNN(
             num_nodes=N,
@@ -356,6 +394,57 @@ def build_model(
 import random
 
 
+# ══════════════════════════════════════════════════════════════════
+# TÔN — CHRONOLOGICAL SPLIT VỚI PURGE GAP
+# Đây là bước quan trọng nhất để loại bỏ data leakage.
+# Pipeline «LEGACY» (random_split) đã bị XÓA khỏi train.py.
+# Nếu cần so sánh với pipeline cũ, dùng run_multi_seed.py với
+# --split-modes random_fixed (có cảnh báo rõ ràng ở đó).
+# ══════════════════════════════════════════════════════════════════
+def chronological_split(
+    S: int,
+    train_ratio: float = TRAIN_RATIO,
+    val_ratio: float = VAL_RATIO,
+    purge_gap: int = PURGE_GAP_DEFAULT,
+) -> tuple[list[int], list[int], list[int]]:
+    """
+    Chia S mẫu theo thứ tự thời gian với purge gap giữa các tập.
+
+    Purge gap = T_in + T_out - 1 loại bỏ các mẫu có cửa sổ trượt
+    chồng lấp với tập liền trước, ngăn model thấy future data.
+
+    Sơ đồ (S=637, T_in=12, T_out=24, gap=35):
+      |←── train=445 ──→|← 35 →|← val=64 →|← 35 →|←── test=58 ──→|
+       idx 0          444       480       543       578            636
+
+    Args:
+        S          : Tổng số mẫu (dataset_dict["X"].size(0)).
+        train_ratio: Tỷ lệ train (0.7).
+        val_ratio  : Tỷ lệ val   (0.1).
+        purge_gap  : = meta["T_in"] + meta["T_out"] - 1.
+
+    Returns:
+        train_idx, val_idx, test_idx — 3 list index không chồng lấp.
+    """
+    n_train = int(S * train_ratio)
+    n_val   = int(S * val_ratio)
+
+    val_start  = n_train + purge_gap
+    val_end    = val_start + n_val
+    test_start = val_end + purge_gap
+
+    if test_start >= S:
+        raise ValueError(
+            f"Dataset quá nhỏ ({S} mẫu) với purge_gap={purge_gap}. "
+            f"Cần ít nhất {n_train + n_val + 2 * purge_gap + 1} mẫu."
+        )
+
+    train_idx = list(range(0, n_train))
+    val_idx   = list(range(val_start, val_end))
+    test_idx  = list(range(test_start, S))
+    return train_idx, val_idx, test_idx
+
+
 def set_seed(seed=42):
     random.seed(seed)
     np.random.seed(seed)
@@ -391,18 +480,44 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
     Z = dataset_dict["Z"].to(DEVICE)
 
     S = X.size(0)
-    n_train = int(S * TRAIN_RATIO)
-    n_val = int(S * VAL_RATIO)
-    n_test = S - n_train - n_val
 
-    full_ds = TensorDataset(X, Y, TL)
-    train_ds, val_ds, test_ds = random_split(
-        full_ds, [n_train, n_val, n_test], generator=torch.Generator().manual_seed(42)
+    # ── Chronological Split với Purge Gap (Tôn) ─────────────────────────
+    purge_gap = meta["T_in"] + meta["T_out"] - 1
+    train_idx, val_idx, test_idx = chronological_split(
+        S, TRAIN_RATIO, VAL_RATIO, purge_gap=purge_gap
+    )
+    print(
+        f"  [Split] chrono: train={len(train_idx)} | gap={purge_gap}"
+        f" | val={len(val_idx)} | gap={purge_gap} | test={len(test_idx)}"
+        f" (bỏ {2 * purge_gap} mẫu purge)"
     )
 
+    # ── Z-Score Normalization — fit CHỈ trên train (Tôn) ────────────────
+    x_normalizer = ZScoreNormalizer()
+    x_normalizer.fit(X[train_idx])
+
+    y_normalizer = ZScoreNormalizer()
+    y_normalizer.fit(Y[train_idx])
+
+    print(f"  [Norm-X] {x_normalizer}")
+    print(f"  [Norm-Y] {y_normalizer}")
+
+    X_norm = x_normalizer.transform(X)
+    Y_norm = y_normalizer.transform(Y)
+
+    # Lưu stats để dùng lại khi inference (chỉ lưu với zone_full)
+    if variant_name == "zone_full":
+        x_normalizer.save(os.path.join(NORMALIZER_DIR, "x_normalizer.pt"))
+        y_normalizer.save(os.path.join(NORMALIZER_DIR, "y_normalizer.pt"))
+
+    full_ds = TensorDataset(X_norm, Y_norm, TL)
+    train_ds = Subset(full_ds, train_idx)
+    val_ds   = Subset(full_ds, val_idx)
+    test_ds  = Subset(full_ds, test_idx)
+
     train_loader = DataLoader(train_ds, BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(val_ds, BATCH_SIZE)
-    test_loader = DataLoader(test_ds, BATCH_SIZE)
+    val_loader   = DataLoader(val_ds, BATCH_SIZE)
+    test_loader  = DataLoader(test_ds, BATCH_SIZE)
 
     model = build_model(variant_name, meta, use_zone_emb, use_zone_weight, use_zone_adj)
     model = model.to(DEVICE)
@@ -427,7 +542,9 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
             lambda_cos=effective_lambda_cos,
         )
         val_preds, val_trues = evaluate(model, val_loader, A, Z, DEVICE)
-        val_metrics = compute_metrics(val_preds, val_trues)
+        val_preds_real = y_normalizer.inverse_transform(val_preds)
+        val_trues_real = y_normalizer.inverse_transform(val_trues)
+        val_metrics = compute_metrics(val_preds_real, val_trues_real)
         scheduler.step(val_metrics["MAE"])
 
         if epoch % 10 == 0:
@@ -454,9 +571,14 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
 
     model.load_state_dict(best_state)
     test_preds, test_trues = evaluate(model, test_loader, A, Z, DEVICE)
-    test_metrics = compute_metrics(test_preds, test_trues)
+
+    # ── Inverse-transform về đơn vị gốc trước khi tính metric (Tôn) ─────
+    test_preds_real = y_normalizer.inverse_transform(test_preds)
+    test_trues_real = y_normalizer.inverse_transform(test_trues)
+
+    test_metrics = compute_metrics(test_preds_real, test_trues_real)
     zone_metrics = compute_zone_stratified_metrics(
-        test_preds, test_trues, Z.cpu(), meta["zone_types"]
+        test_preds_real, test_trues_real, Z.cpu(), meta["zone_types"]
     )
 
     # Bảo — báo cáo cosine similarity trung bình cuối cùng (để so sánh trong paper)
@@ -464,13 +586,16 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
     if effective_lambda_cos > 0:
         model.eval()
         with torch.no_grad():
-            z_emb = get_zone_embeddings(model, Z)
+            # Truyền dummy time_idx=0 để tương thích với TimeZoneEmbedding / SinusoidalZoneEmbedding
+            dummy_t = torch.zeros(1, dtype=torch.long, device=DEVICE)
+            z_emb = get_zone_embeddings(model, Z, time_idx=dummy_t)
             if z_emb is not None:
                 final_cos_sim = compute_cosine_reg(z_emb, Z).item()
 
-    print(f"\n  📊 Test Results:")
+    print(f"\n  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):")
     print(
-        f"     MAE={test_metrics['MAE']:.4f} | RMSE={test_metrics['RMSE']:.4f} | MAPE={test_metrics['MAPE']:.2f}%"
+        f"     MAE={test_metrics['MAE']:.4f} | RMSE={test_metrics['RMSE']:.4f}"
+        f" | MAPE={test_metrics['MAPE']:.2f}% | WAPE={test_metrics['WAPE']:.2f}%"
     )
     if final_cos_sim is not None:
         print(f"     Cosine similarity (khác zone, cuối train): {final_cos_sim:.4f}")

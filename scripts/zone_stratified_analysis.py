@@ -87,7 +87,8 @@ def load_jsd_data():
     return eda["nodes"], np.array(eda["jsd_matrix"]), np.array(eda["zone_sim_matrix"])
 
 def load_ablation():
-    return pd.read_csv(RESULTS_DIR/"ablation_results.csv")
+    """Load kết quả ablation từ all_results.csv"""
+    return pd.read_csv(RESULTS_DIR/"all_results.csv")
 
 def compute_zone_group_stats(zdf):
     rows=[]
@@ -170,18 +171,38 @@ def evaluate_zone_stratified(variant, ckpt, dataset, meta):
     model.load_state_dict(torch.load(ckpt,map_location="cpu",weights_only=False))
     model.eval()
     X,Y,TL,Z,A = dataset["X"],dataset["Y"],dataset["time_labels"],dataset["Z"],dataset["A"]
-    from torch.utils.data import TensorDataset, random_split
-    S=X.size(0); nt=int(S*0.7); nv=int(S*0.1); ns=S-nt-nv
-    _,_,test_ds = random_split(TensorDataset(X,Y,TL),[nt,nv,ns],
-        generator=torch.Generator().manual_seed(42))
-    preds,trues=[],[]
-    for Xb,Yb,Tb in test_ds:
-        preds.append(model(Xb,Z,Tb,A)); trues.append(Yb)
-    preds=torch.cat(preds); trues=torch.cat(trues)
+    from torch.utils.data import TensorDataset, Subset
+    from scripts.train import chronological_split, PURGE_GAP_DEFAULT
+    from utils.normalizer import ZScoreNormalizer
+    import os
+
+    S=X.size(0)
+    train_idx, val_idx, test_idx = chronological_split(S, 0.7, 0.1, PURGE_GAP_DEFAULT)
+    
+    # Load normalizers to transform input
+    x_normalizer = ZScoreNormalizer.load("data/processed/x_normalizer.pt")
+    y_normalizer = ZScoreNormalizer.load("data/processed/y_normalizer.pt")
+    
+    X_norm = x_normalizer.transform(X)
+    
+    test_ds = Subset(TensorDataset(X_norm, Y, TL), test_idx)
+    
+    preds, trues = [], []
+    for Xb, Yb, Tb in test_ds:
+        preds.append(model(Xb.unsqueeze(0), Z, Tb.unsqueeze(0), A).squeeze(0)) # Add/remove batch dim since we iterate one by one
+        trues.append(Yb)
+    preds = torch.stack(preds)
+    trues = torch.stack(trues)
+    preds = y_normalizer.inverse_transform(preds)
     mae=(preds-trues).abs().mean().item()
     rmse=((preds-trues)**2).mean().sqrt().item()
-    mask=trues.abs()>1e-5
-    mape=((preds-trues).abs()/(trues.abs()+1e-8))[mask].mean().item()*100
+    mask = trues.abs() >= 0.05
+    if mask.sum() > 0:
+        mape = ((preds - trues).abs() / trues.abs())[mask].mean().item() * 100
+    else:
+        mape = float("nan")
+    
+    print(f"[{variant}] MAE: {mae:.4f} | RMSE: {rmse:.4f} | MAPE: {mape:.2f}%")
     Znp=Z.cpu().numpy(); zm={}
     for k,z in enumerate(ZONE_TYPES):
         nm=Znp[:,k]==1
