@@ -30,8 +30,14 @@ class LSTMBaseline(nn.Module):
     Nếu LSTM tốt hơn GNN thì GNN không có giá trị trên bài toán này.
     """
 
-    def __init__(self, num_nodes: int, in_channels: int, out_channels: int,
-                 hidden_dim: int = 128, num_layers: int = 2):
+    def __init__(
+        self,
+        num_nodes: int,
+        in_channels: int,
+        out_channels: int,
+        hidden_dim: int = 128,
+        num_layers: int = 2,
+    ):
         super().__init__()
         self.num_nodes = num_nodes
         self.out_channels = out_channels
@@ -52,8 +58,8 @@ class LSTMBaseline(nn.Module):
         B, N, F_in = X.shape
         # (B, N*F_in) → unsqueeze thành (B, 1, N*F_in) cho LSTM
         x = X.reshape(B, 1, N * F_in)
-        h, _ = self.lstm(x)            # (B, 1, hidden_dim)
-        out = self.fc(h[:, -1, :])     # (B, N * out_channels)
+        h, _ = self.lstm(x)  # (B, 1, hidden_dim)
+        out = self.fc(h[:, -1, :])  # (B, N * out_channels)
         return out.view(B, N, self.out_channels)
 
 
@@ -70,7 +76,7 @@ class _StandardGCN(nn.Module):
 
     def __init__(self, in_dim: int, out_dim: int):
         super().__init__()
-        self.W    = nn.Linear(in_dim, out_dim, bias=True)
+        self.W = nn.Linear(in_dim, out_dim, bias=True)
         self.norm = nn.LayerNorm(out_dim)
 
     def forward(self, H: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
@@ -98,13 +104,14 @@ class GCNGRUBaseline(nn.Module):
       (b) Node-specific weight là cần thiết (shared W vs ZM-Conv)
     """
 
-    def __init__(self, num_nodes: int, in_channels: int, out_channels: int,
-                 hidden_dim: int = 64):
+    def __init__(
+        self, num_nodes: int, in_channels: int, out_channels: int, hidden_dim: int = 64
+    ):
         super().__init__()
         self.gcn1 = _StandardGCN(in_channels, hidden_dim)
         self.gcn2 = _StandardGCN(hidden_dim, hidden_dim)
-        self.gru  = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
-        self.fc   = nn.Linear(hidden_dim, out_channels)
+        self.gru = nn.GRU(hidden_dim, hidden_dim, batch_first=True)
+        self.fc = nn.Linear(hidden_dim, out_channels)
         self.num_nodes = num_nodes
         self.hidden_dim = hidden_dim
 
@@ -123,8 +130,8 @@ class GCNGRUBaseline(nn.Module):
             A = A_static
 
         # Spatial convolution (2 layers GCN)
-        h = self.gcn1(X, A)   # (B, N, hidden_dim)
-        h = self.gcn2(h, A)   # (B, N, hidden_dim)
+        h = self.gcn1(X, A)  # (B, N, hidden_dim)
+        h = self.gcn2(h, A)  # (B, N, hidden_dim)
 
         # Temporal: GRU per node
         # (B, N, hidden) → (B*N, 1, hidden) → GRU → (B*N, 1, hidden) → (B, N, hidden)
@@ -132,23 +139,32 @@ class GCNGRUBaseline(nn.Module):
         h_gru, _ = self.gru(h_r)
         h_out = h_gru[:, -1, :].reshape(B, N, self.hidden_dim)
 
-        return self.fc(h_out)    # (B, N, out_channels)
+        return self.fc(h_out)  # (B, N, out_channels)
 
 
 # ══════════════════════════════════════════════
 # BASELINE 3: STGCN (Spatio-Temporal GCN, simplified)
 # ══════════════════════════════════════════════
 class _TemporalConv(nn.Module):
-    """Temporal convolution 1D trên chiều node features."""
+    """
+    Temporal convolution 1D trượt THẬT trên trục thời gian T.
+
+    KHÔNG dùng padding (padding=0) → kernel trượt qua chuỗi thời gian và
+    thu ngắn độ dài: T_out = T_in - (kernel_size - 1).
+    Ví dụ kernel_size=3: 12 → 10 → 8 (đúng kiểu Gated-TCN của STGCN gốc).
+    """
 
     def __init__(self, channels: int, kernel_size: int = 3):
         super().__init__()
-        self.conv = nn.Conv1d(channels, channels, kernel_size,
-                              padding=kernel_size // 2)
+        self.kernel_size = kernel_size
+        self.conv = nn.Conv1d(channels, channels, kernel_size, padding=0)
         self.norm = nn.LayerNorm(channels)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # x: (B, T, channels) → conv trên chiều T
+        """
+        x: (batch, T, channels) — batch ở đây là B*N (mỗi node là 1 sequence)
+        → (batch, T - kernel_size + 1, channels)
+        """
         out = self.conv(x.transpose(1, 2)).transpose(1, 2)
         return self.norm(F.relu(out))
 
@@ -158,50 +174,90 @@ class STGCNBaseline(nn.Module):
     Spatio-Temporal GCN kiểu sandwich: TemporalConv → GCN → TemporalConv.
     Simplified version của Yu et al. (2018).
 
+    Khác với bản cũ (giả T=1), bản này khôi phục ĐÚNG chiều thời gian:
+        X (B, N, T_in*F) → reshape → (B, N, T_in, F)
+    rồi cho TemporalConv trượt thật qua trục T_in (12 → 10 → 8),
+    với GCN áp dụng độc lập tại từng bước thời gian còn lại giữa 2 lớp
+    temporal conv.
+
     Mục đích: Benchmark với kiến trúc ST-GCN state-of-the-art.
     Không có adaptive adjacency và không có zone awareness.
     """
 
-    def __init__(self, num_nodes: int, in_channels: int, out_channels: int,
-                 hidden_dim: int = 64):
+    def __init__(
+        self,
+        num_nodes: int,
+        in_channels: int,
+        out_channels: int,
+        hidden_dim: int = 64,
+        T_in: int = 12,
+        F_dim: int = 4,
+        kernel_size: int = 3,
+    ):
         super().__init__()
-        self.input_proj = nn.Linear(in_channels, hidden_dim)
-        self.tconv1     = _TemporalConv(hidden_dim)
-        self.gcn        = _StandardGCN(hidden_dim, hidden_dim)
-        self.tconv2     = _TemporalConv(hidden_dim)
-        self.fc         = nn.Linear(hidden_dim, out_channels)
+        assert in_channels == T_in * F_dim, (
+            f"in_channels ({in_channels}) phải bằng T_in*F_dim "
+            f"({T_in}*{F_dim}={T_in * F_dim}). Hãy truyền đúng T_in/F_dim."
+        )
+        self.num_nodes = num_nodes
+        self.T_in = T_in
+        self.F_dim = F_dim
+        self.hidden_dim = hidden_dim
+
+        self.input_proj = nn.Linear(F_dim, hidden_dim)
+        self.tconv1 = _TemporalConv(hidden_dim, kernel_size=kernel_size)
+        self.gcn = _StandardGCN(hidden_dim, hidden_dim)
+        self.tconv2 = _TemporalConv(hidden_dim, kernel_size=kernel_size)
+        self.fc = nn.Linear(hidden_dim, out_channels)
 
     def forward(self, X, Z=None, time_idx=None, A_static=None):
         """
-        X:        (B, N, in_channels)
+        X:        (B, N, T_in*F_dim)  — sẽ được reshape lại thành (B, N, T_in, F_dim)
         A_static: (N, N) OSRM adjacency — cố định
         → out:    (B, N, out_channels)
         """
-        B, N, _ = X.shape
+        B, N, C = X.shape
+        assert C == self.T_in * self.F_dim, (
+            f"X có in_channels={C} nhưng model được khởi tạo với "
+            f"T_in={self.T_in}, F_dim={self.F_dim} (tích={self.T_in * self.F_dim})."
+        )
 
         if A_static is None:
             A = torch.eye(N, device=X.device)
         else:
             A = A_static
 
-        # Project input
-        h = self.input_proj(X)       # (B, N, hidden_dim)
+        # ── Khôi phục chiều thời gian thật ──
+        # (B, N, T_in*F_dim) → (B, N, T_in, F_dim)
+        X = X.view(B, N, self.T_in, self.F_dim)
 
-        # Temporal conv 1 (coi mỗi node feature theo B như một sequence length-1)
-        h = h.unsqueeze(1)           # (B, 1, N, hidden) — fake T dim
-        h = h.reshape(B * N, 1, -1) # (B*N, T=1, hidden)
-        h = self.tconv1(h)           # (B*N, 1, hidden)
-        h = h.reshape(B, N, -1)      # (B, N, hidden)
+        # Project feature F_dim → hidden_dim tại mỗi bước thời gian
+        h = self.input_proj(X)  # (B, N, T_in, hidden)
 
-        # Spatial GCN
-        h = self.gcn(h, A)           # (B, N, hidden)
+        # ── TemporalConv 1: trượt thật qua T_in ──
+        # gộp (B, N) thành batch để Conv1d chạy độc lập trên từng node
+        h = h.reshape(B * N, self.T_in, self.hidden_dim)
+        h = self.tconv1(h)  # (B*N, T1, hidden), T1 = T_in-2
+        T1 = h.shape[1]
+        h = h.reshape(B, N, T1, self.hidden_dim)
 
-        # Temporal conv 2
-        h = h.reshape(B * N, 1, -1)
-        h = self.tconv2(h)
-        h = h[:, -1, :].reshape(B, N, -1)  # (B, N, hidden)
+        # ── Spatial GCN: áp dụng độc lập tại từng bước thời gian còn lại ──
+        # gộp (B, T1) thành batch để GCN broadcast theo A (N,N)
+        h = h.permute(0, 2, 1, 3).reshape(B * T1, N, self.hidden_dim)
+        h = self.gcn(h, A)  # (B*T1, N, hidden)
+        h = h.reshape(B, T1, N, self.hidden_dim).permute(
+            0, 2, 1, 3
+        )  # (B, N, T1, hidden)
 
-        return self.fc(h)            # (B, N, out_channels)
+        # ── TemporalConv 2: trượt tiếp, thu ngắn thêm ──
+        h = h.reshape(B * N, T1, self.hidden_dim)
+        h = self.tconv2(h)  # (B*N, T2, hidden), T2 = T1-2
+        T2 = h.shape[1]
+        h = h.reshape(B, N, T2, self.hidden_dim)
+
+        # ── Pool phần thời gian còn lại (mean pooling) rồi FC ra output ──
+        h_out = h.mean(dim=2)  # (B, N, hidden)
+        return self.fc(h_out)  # (B, N, out_channels)
 
 
 # ══════════════════════════════════════════════
@@ -209,18 +265,19 @@ class STGCNBaseline(nn.Module):
 # ══════════════════════════════════════════════
 if __name__ == "__main__":
     torch.manual_seed(42)
-    B, N, F_in, T_out = 32, 17, 48, 3   # 48 = T_in(12) * F(4)
+    B, N, T_in, F_dim, T_out = 32, 17, 12, 4, 3
+    F_in = T_in * F_dim  # 48 = 12 * 4, giữ nguyên interface cũ (B,N,F_in)
 
-    X        = torch.randn(B, N, F_in)
-    Z        = torch.randint(0, 2, (N, 8)).float()
+    X = torch.randn(B, N, F_in)
+    Z = torch.randint(0, 2, (N, 8)).float()
     time_idx = torch.randint(0, 4, (B,))
-    A        = torch.rand(N, N)
-    A        = A / A.sum(dim=-1, keepdim=True)
+    A = torch.rand(N, N)
+    A = A / A.sum(dim=-1, keepdim=True)
 
     models = {
-        "LSTMBaseline":    LSTMBaseline(N, F_in, T_out),
-        "GCNGRUBaseline":  GCNGRUBaseline(N, F_in, T_out),
-        "STGCNBaseline":   STGCNBaseline(N, F_in, T_out),
+        "LSTMBaseline": LSTMBaseline(N, F_in, T_out),
+        "GCNGRUBaseline": GCNGRUBaseline(N, F_in, T_out),
+        "STGCNBaseline": STGCNBaseline(N, F_in, T_out, T_in=T_in, F_dim=F_dim),
     }
 
     print("=" * 50)
