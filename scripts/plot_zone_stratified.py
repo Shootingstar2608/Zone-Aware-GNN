@@ -60,7 +60,7 @@ MODEL_LABELS = {
     "zone_concat": "+ Zone Concat",
     "zone_weight": "+ Zone Weight",
     "zone_full": "Zone-Full ★",
-    "zone_full_tc": "Zone-TC (Tân)",
+    "zone_full_tc": "Zone-TC (Tôn)",
     "zone_full_sinc": "Zone-Sinc (Bảo)",
     "lstm": "LSTM",
     "gcn_gru": "GCN-GRU",

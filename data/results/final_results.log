@@ -1,0 +1,255 @@
+📂 Loading dataset from data/processed/graph_dataset.pt...
+  Nodes: 17 | Zones: 8 | Features: 4
+  Samples: 637 | T_in: 12 | T_out: 24
+  TomTom: ✅
+  Zones:  ✅
+  Device: cpu
+  Cosine reg λ: 0.1
+
+=======================================================
+  Variant: baseline_ahgnn
+  zone_emb=False | zone_weight=False | zone_adj=False
+  cosine_reg=OFF
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 251,608
+  Ep  10 | train_loss=0.2721 (huber=0.2721) | val_MAE=0.8413 | val_RMSE=1.0477
+  Early stop at epoch 18
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2672 | RMSE=0.3149 | MAPE=21.13% | WAPE=20.85%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2645
+     MAE_residential: 0.2679
+     MAE_industrial: 0.2759
+     MAE_school: 0.2645
+     MAE_university: 0.2716
+     MAE_hospital: 0.2618
+     MAE_transport: 0.2640
+     MAE_park: 0.2584
+     MAE_multi_zone: 0.2665
+
+=======================================================
+  Variant: zone_concat
+  zone_emb=True | zone_weight=False | zone_adj=False
+  cosine_reg=ON (λ=0.1)
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 359,145
+  Ep  10 | train_loss=0.1977 (huber=0.2874 | cos_reg=-0.8969) | val_MAE=0.7535 | val_RMSE=0.9428
+  Ep  20 | train_loss=0.1638 (huber=0.2540 | cos_reg=-0.9027) | val_MAE=0.7616 | val_RMSE=0.9794
+  Early stop at epoch 21
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2519 | RMSE=0.3081 | MAPE=18.57% | WAPE=19.66%
+     Cosine similarity (khác zone, cuối train): -0.8877
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2491
+     MAE_residential: 0.2513
+     MAE_industrial: 0.2574
+     MAE_school: 0.2507
+     MAE_university: 0.2537
+     MAE_hospital: 0.2482
+     MAE_transport: 0.2505
+     MAE_park: 0.2496
+     MAE_multi_zone: 0.2513
+
+=======================================================
+  Variant: zone_weight
+  zone_emb=True | zone_weight=True | zone_adj=False
+  cosine_reg=ON (λ=0.1)
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 359,145
+  Ep  10 | train_loss=0.1464 (huber=0.2343 | cos_reg=-0.8790) | val_MAE=0.7965 | val_RMSE=0.9989
+  Early stop at epoch 18
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2598 | RMSE=0.3134 | MAPE=19.56% | WAPE=20.27%
+     Cosine similarity (khác zone, cuối train): -0.8285
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2572
+     MAE_residential: 0.2593
+     MAE_industrial: 0.2648
+     MAE_school: 0.2586
+     MAE_university: 0.2611
+     MAE_hospital: 0.2567
+     MAE_transport: 0.2584
+     MAE_park: 0.2575
+     MAE_multi_zone: 0.2592
+
+=======================================================
+  Variant: zone_full
+  zone_emb=True | zone_weight=True | zone_adj=True
+  cosine_reg=ON (λ=0.1)
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 359,145
+  Ep  10 | train_loss=0.1282 (huber=0.2164 | cos_reg=-0.8825) | val_MAE=0.8524 | val_RMSE=1.0728
+  Early stop at epoch 18
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2531 | RMSE=0.2968 | MAPE=19.71% | WAPE=19.75%
+     Cosine similarity (khác zone, cuối train): -0.8326
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2510
+     MAE_residential: 0.2528
+     MAE_industrial: 0.2577
+     MAE_school: 0.2525
+     MAE_university: 0.2544
+     MAE_hospital: 0.2501
+     MAE_transport: 0.2523
+     MAE_park: 0.2492
+     MAE_multi_zone: 0.2526
+
+=======================================================
+  Variant: zone_full_tc
+  zone_emb=True | zone_weight=True | zone_adj=True
+  cosine_reg=ON (λ=0.1)
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 359,481
+  Ep  10 | train_loss=0.1334 (huber=0.2219 | cos_reg=-0.8843) | val_MAE=0.8621 | val_RMSE=1.0786
+  Early stop at epoch 18
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2514 | RMSE=0.3052 | MAPE=19.43% | WAPE=19.62%
+     Cosine similarity (khác zone, cuối train): -0.8598
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2487
+     MAE_residential: 0.2510
+     MAE_industrial: 0.2574
+     MAE_school: 0.2507
+     MAE_university: 0.2534
+     MAE_hospital: 0.2483
+     MAE_transport: 0.2495
+     MAE_park: 0.2490
+     MAE_multi_zone: 0.2507
+
+=======================================================
+  Variant: zone_full_sinc
+  zone_emb=True | zone_weight=True | zone_adj=True
+  cosine_reg=ON (λ=0.1)
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 362,121
+  Ep  10 | train_loss=0.1214 (huber=0.2093 | cos_reg=-0.8786) | val_MAE=0.8857 | val_RMSE=1.0961
+  Early stop at epoch 17
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2529 | RMSE=0.2936 | MAPE=19.39% | WAPE=19.73%
+     Cosine similarity (khác zone, cuối train): -0.8105
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2494
+     MAE_residential: 0.2520
+     MAE_industrial: 0.2611
+     MAE_school: 0.2516
+     MAE_university: 0.2560
+     MAE_hospital: 0.2487
+     MAE_transport: 0.2506
+     MAE_park: 0.2504
+     MAE_multi_zone: 0.2519
+
+=======================================================
+  Variant: lstm
+  zone_emb=False | zone_weight=False | zone_adj=False
+  cosine_reg=OFF
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 669,080
+  Ep  10 | train_loss=0.2243 (huber=0.2243) | val_MAE=0.7774 | val_RMSE=0.9839
+  Early stop at epoch 17
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2484 | RMSE=0.2998 | MAPE=18.72% | WAPE=19.38%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2457
+     MAE_residential: 0.2474
+     MAE_industrial: 0.2543
+     MAE_school: 0.2472
+     MAE_university: 0.2495
+     MAE_hospital: 0.2451
+     MAE_transport: 0.2468
+     MAE_park: 0.2451
+     MAE_multi_zone: 0.2476
+
+=======================================================
+  Variant: gcn_gru
+  zone_emb=False | zone_weight=False | zone_adj=False
+  cosine_reg=OFF
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 34,072
+  Ep  10 | train_loss=0.2517 (huber=0.2517) | val_MAE=0.7680 | val_RMSE=0.9508
+  Early stop at epoch 17
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2522 | RMSE=0.3085 | MAPE=18.98% | WAPE=19.68%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2494
+     MAE_residential: 0.2516
+     MAE_industrial: 0.2574
+     MAE_school: 0.2509
+     MAE_university: 0.2537
+     MAE_hospital: 0.2487
+     MAE_transport: 0.2507
+     MAE_park: 0.2498
+     MAE_multi_zone: 0.2515
+
+=======================================================
+  Variant: stgcn
+  zone_emb=False | zone_weight=False | zone_adj=False
+  cosine_reg=OFF
+=======================================================
+  [Split] chrono: train=445 | gap=35 | val=63 | gap=35 | test=59 (bỏ 70 mẫu purge)
+  [Norm-X] ZScoreNormalizer(fitted=True, mean=[1.2696..955.9756], std=[0.3295..354.7673])
+  [Norm-Y] ZScoreNormalizer(fitted=True, mean=[1.2896..1.3020], std=[0.3397..0.3469])
+  Parameters: 33,944
+  Ep  10 | train_loss=0.2488 (huber=0.2488) | val_MAE=0.8027 | val_RMSE=1.0138
+  Early stop at epoch 16
+
+  📊 Test Results (đơn vị gốc congestion_ratio, sau inverse-transform):
+     MAE=0.2662 | RMSE=0.3220 | MAPE=20.49% | WAPE=20.77%
+  📊 Zone-Stratified MAE:
+     MAE_commercial: 0.2637
+     MAE_residential: 0.2657
+     MAE_industrial: 0.2711
+     MAE_school: 0.2650
+     MAE_university: 0.2675
+     MAE_hospital: 0.2629
+     MAE_transport: 0.2649
+     MAE_park: 0.2636
+     MAE_multi_zone: 0.2657
+
+========================================================================
+  SUMMARY
+========================================================================
+  Variant                     MAE     RMSE    MAPE%  Multi-Zone MAE   CosSim
+  ----------------------------------------------------------------------
+  baseline_ahgnn           0.2672   0.3149    21.13          0.2665      nan
+  zone_concat              0.2519   0.3081    18.57          0.2513  -0.8877
+  zone_weight              0.2598   0.3134    19.56          0.2592  -0.8285
+  zone_full                0.2531   0.2968    19.71          0.2526  -0.8326 ← PROPOSED
+  zone_full_tc             0.2514   0.3052    19.43          0.2507  -0.8598
+  zone_full_sinc           0.2529   0.2936    19.39          0.2519  -0.8105
+  lstm                     0.2484   0.2998    18.72          0.2476      nan
+  gcn_gru                  0.2522   0.3085    18.98          0.2515      nan
+  stgcn                    0.2662   0.3220    20.49          0.2657      nan
+
+✅ Results saved to data/results/all_results.csv

@@ -1,0 +1,77 @@
+======================================================================
+  Zone-Stratified Analysis — Model evaluation + Non-IID evidence
+======================================================================
+
+[1/6] Loading zone labels...
+  zone_type  num_nodes  total_assignments  pct_nodes
+ commercial         13                 13       76.5
+residential         13                 13       76.5
+  transport         10                 10       58.8
+     school          8                  8       47.1
+   hospital          4                  4       23.5
+ university          4                  4       23.5
+       park          4                  4       23.5
+ industrial          3                  3       17.6
+
+[2/6] Loading JSD + zone similarity matrices...
+
+[3/6] Loading ablation_results.csv...
+       variant      MAE     RMSE      MAPE  MAE_multi_zone
+baseline_ahgnn 0.267188 0.314950 21.125340        0.266476
+   zone_concat 0.251939 0.308136 18.571141        0.251275
+   zone_weight 0.259800 0.313363 19.556563        0.259199
+     zone_full 0.253172 0.297032 19.704230        0.252642
+  zone_full_tc 0.251443 0.305204 19.433364        0.250727
+zone_full_sinc 0.252874 0.293641 19.394468        0.251909
+          lstm 0.248374 0.299768 18.719144        0.247638
+       gcn_gru 0.252160 0.308493 18.982671        0.251521
+         stgcn 0.266230 0.321991 20.487401        0.265652
+
+[4/6] Re-evaluating models on test set...
+  → Loading baseline_ahgnn...
+[baseline_ahgnn] MAE: 0.2672 | RMSE: 0.3149 | MAPE: 21.13%
+  → Loading zone_concat...
+[zone_concat] MAE: 0.2519 | RMSE: 0.3081 | MAPE: 18.57%
+  → Loading zone_weight...
+[zone_weight] MAE: 0.2598 | RMSE: 0.3134 | MAPE: 19.56%
+  → Loading zone_full...
+[zone_full] MAE: 0.2532 | RMSE: 0.2970 | MAPE: 19.70%
+
+[5/6] Building zone-stratified MAE table...
+  zone_type  n_nodes  baseline_ahgnn  zone_concat  zone_weight  zone_full
+ commercial       13        0.264499     0.249127     0.257183   0.251061
+residential       13        0.267930     0.251344     0.259277   0.252836
+ industrial        3        0.275933     0.257397     0.264767   0.257697
+     school        8        0.264522     0.250651     0.258641   0.252620
+ university        4        0.271581     0.253699     0.261088   0.254412
+   hospital        4        0.261836     0.248221     0.256687   0.250169
+  transport       10        0.263973     0.250475     0.258389   0.252402
+       park        4        0.258428     0.249575     0.257472   0.249223
+
+[6/6] Generating visualizations...
+  ✓ zone_count_bar.png
+  ✓ zone_stratified_mae.png
+  ✓ eda_jsd_heatmap.png
+  ✓ zone_similarity_heatmap.png
+  ✓ eda_jsd_correlation.png
+  ✓ jsd_boxplot_by_group.png
+
+======================================================================
+  SUMMARY
+======================================================================
+
+📊 Zone groups:
+  - Total nodes       : 17
+  - Multi-zone nodes  : 16 (94.1%)
+  - Mean cardinality  : 3.47
+
+📊 JSD off-diag: mean=0.0140  max=0.0382  min=0.0005
+📊 Zone sim off-diag: mean=0.5178  pairs(sim=0)=18  pairs(sim>0.5)=82
+
+🔬 Non-IID evidence:
+  JSD(sim>0.5)=0.0108  JSD(sim=0)=0.0177  Δ=+0.0069
+
+📈 Correlation: Pearson r=-0.4137  p=5.54e-07  (significant)
+
+📁 Output → /home/toon/Zone-Aware-GNN/data/results
+======================================================================
