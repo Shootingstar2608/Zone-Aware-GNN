@@ -68,7 +68,7 @@ Research/
 
 ```bash
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  |  venv\Scripts\Activate.ps1
 pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
