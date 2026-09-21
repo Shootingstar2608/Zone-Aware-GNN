@@ -1,0 +1,51 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    name: Unit test benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # partition_gen.py chi phu thuoc numpy (torch import lazy, khong cham toi
+      # trong test). Khong cai torch o day de job nay chay duoi 1 phut.
+      - run: python -m pip install --upgrade pip numpy pytest
+      - name: pytest
+        run: pytest tests/test_benchmark.py -v
+      - name: Runner thuan, khong pytest
+        run: python tests/test_benchmark.py
+
+  reproducibility:
+    name: Partition tai lap duoc tu metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip numpy
+      - name: Sinh lai partition va so mask_hash
+        run: python scripts/verify_partitions.py
+
+  pipeline:
+    name: quick_test tren clone sach
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Cai dependency (torch ban CPU)
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pandas scipy
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python scripts/quick_test.py
