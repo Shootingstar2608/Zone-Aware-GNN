@@ -1,8 +1,9 @@
 # 05 — Nhật ký công việc: Người 2 (Khoa) — Benchmark Non-IID
 
-**Giai đoạn:** 04/09/2026 → 20/09/2026
-**Phạm vi:** `benchmark/`, `tests/`, `scripts/dev/`, 2 bugfix chặn ở `scripts/`
-**Trạng thái:** 4 cơ chế phân vùng + input masking v2 + 27 unit test — xong, pass hết
+**Giai đoạn:** 04/09/2026 → 21/09/2026
+**Phạm vi:** `benchmark/`, `tests/`, `scripts/`, `.github/workflows/`, 2 bugfix chặn ở `scripts/`
+**Trạng thái:** 4 cơ chế phân vùng + input masking v2 + 27 unit test + CLI (31 partition) + CI
+3/3 job xanh — **đóng toàn bộ DoD §4.2 của plan tuần**
 
 ---
 
@@ -19,6 +20,7 @@
 9. [Issues còn treo](#9-issues-còn-treo)
 10. [Câu hỏi cho từng thành viên](#10-câu-hỏi-cho-từng-thành-viên)
 11. [Lịch sử commit](#11-lịch-sử-commit)
+12. [CLI sinh partition + CI (21/09)](#12-cli-sinh-partition--ci-2109)
 
 ---
 
@@ -523,9 +525,11 @@ nên nhận `--source` thay vì hardcode.
 
 ### 🟠 P1
 
-- `partitions_meta.json` vẫn còn 3 `PLACEHOLDER` — chưa sinh bản ghi thật
-- Chưa ai chạy `chrono` split. `multiseed_runs.csv` 180 dòng, chỉ `random_fixed` +
-  `random_paired`. Lỗ hổng rò rỉ gốc **chưa được kiểm chứng**
+- ~~`partitions_meta.json` vẫn còn 3 `PLACEHOLDER`~~ → **xong 21/09**, xem §12.1: CLI sinh
+  31 bản ghi thật, `verify_partitions.py` xác nhận tái lập bit-for-bit
+- ~~Chưa ai chạy `chrono` split~~ → **xong 20–21/09**. 10 seed × 9 model dưới chronological
+  split có purge gap. Kết quả đảo thứ hạng: `lstm` ngang `zone_full_sinc` về MAE, mọi so sánh
+  đều không đạt ý nghĩa sau Holm. Phần thực nghiệm của paper phải viết lại
 - Nhiệm vụ Người 3 gần như vô nghĩa trên dữ liệu synthetic (xem §10)
 
 ### 🟡 P2
@@ -600,7 +604,11 @@ tuần cho thứ sẽ ra toàn số hoàn hảo.
 | `329d929` | Contract bộ sinh phân vùng + 2 bugfix chặn (`train.py`, `TIME_LABEL_MAP`) + `.gitattributes` |
 | `7b169a3` | checkpoint |
 | `2977660` | Hiện thực cả 4 cơ chế Non-IID + xoá stub `concept_drift` trùng + sweep script |
-| *(chưa commit)* | Input masking v2 + 27 unit test + `docs/khoa/04` |
+| `7050640` | Input masking v2 + 27 unit test + `docs/khoa/04` |
+| `4afea6e` | `docs/khoa/05` — worklog giai đoạn 04/09–20/09 |
+| `ef09b60` | CLI sinh partition + `dataset_id` + track raw inputs (bỏ 2 file khỏi `.gitignore`) |
+| `07d86c4` | GitHub Actions 3 job + `scripts/verify_partitions.py` + exit code cho `quick_test` |
+| `63e385f` | Import lười `benchmark/__init__.py` — sửa 2 job CI đỏ vì torch |
 
 ### Tài liệu đã viết
 
@@ -613,6 +621,122 @@ tuần cho thứ sẽ ra toàn số hoàn hảo.
 | `docs/khoa/03_benchmark_partition_design.md` | Thiết kế partition — 4 phương án, spec chống rò rỉ, §9 kết quả triển khai |
 | `docs/khoa/04_input_masking_v2.md` | Input masking v2 |
 | `docs/khoa/05_worklog.md` | File này |
+
+---
+
+## 12. CLI sinh partition + CI (21/09)
+
+**Trạng thái:** đóng toàn bộ DoD §4.2 của plan tuần. CI xanh 3/3 job ở commit `63e385f`.
+
+### 12.1. CLI — `python -m benchmark.partition_gen`
+
+Trước đó module chỉ có hàm, không có đường chạy. `partitions_meta.json` vẫn là file mẫu viết
+tay với 3 `PLACEHOLDER`. Thêm `main()` + argparse, sinh **31 partition thật**:
+
+| Scenario | Số bản ghi | Sinh thế nào |
+|---|---|---|
+| `quantity_skew` | 20 | 4 alpha × 5 seed |
+| `zone_skew` | 5 | 5 seed |
+| `temporal_shift` | 1 | tất định, không phụ thuộc seed |
+| `concept_drift` | 5 | 5 seed |
+
+Bốn quyết định đáng ghi:
+
+**Sweep alpha × seed chứ không mỗi alpha một điểm.** `docs/khoa/03` §4.4 đã lập luận: một lần
+bốc Dirichlet ở $\alpha = 0.1$ có thể ra rất lệch hoặc tình cờ gần đều. 20 điểm cho scatter
+MAE-vs-Gini, không phải 4 cột bấp bênh.
+
+**`load_zone_matrix` đọc `zone_labels.csv`, không đọc `.pt`.** $Z$ có trong dataset nhưng mở nó
+phải `import torch`. Đọc CSV thì CLI chạy được ở nơi không có torch — điều kiện để CI
+numpy-only tồn tại được. Thứ tự node lấy từ `meta["nodes"]` chứ không `sorted()`: sai thứ tự
+thì mask gán nhầm zone cho node và **không có gì báo lỗi cả**.
+
+**`concept_drift` gọi `temporal_shift` trước** để lấy `test_idx` — sự cố phải nằm trong test
+set (`docs/khoa/03` §9.4). Trả về `perturbation_spec` gắn ngoài `build_record`, không sinh
+mask, không sửa tensor.
+
+**`--append` gộp theo `partition_id`**, nên chạy lại cùng cấu hình thì ghi đè đúng bản ghi cũ
+chứ không nhân đôi.
+
+Schema thêm trường `dataset_id`, mặc định lấy tên file dataset (`graph_dataset`) — **không**
+đặt sẵn `hcm_sim_v1`, vì dataset hiện tại vẫn là bản legacy và gọi nó là hcm_sim là khai sai.
+
+### 12.2. `scripts/verify_partitions.py`
+
+DoD ghi *"mọi partition tái tạo được từ JSON metadata"* — script này chứng minh điều đó thay
+vì tuyên bố suông. Đọc `partitions_meta.json`, sinh lại từng partition từ
+`(scenario, params, seed)`, rồi so:
+
+| Kiểu | Số bản ghi | So cái gì |
+|---|---|---|
+| mask | 25 | `mask_hash` |
+| splits | 1 | từng list `train` / `val` / `test` |
+| spec | 5 | `perturbation_spec` |
+
+Kết quả: **31/31 khớp bit-for-bit.**
+
+Nhánh `else` cuối bắt scenario lạ và **fail**. Ai thêm cơ chế thứ 5 mà quên cập nhật script
+thì CI kêu to, thay vì lặng lẽ bỏ qua rồi báo xanh — cùng tinh thần *fail to tiếng* ở
+`docs/khoa/03` §6.
+
+### 12.3. CI — `.github/workflows/tests.yml`
+
+Ba job tách rời, chạy trên mọi nhánh (`branches: ["**"]`):
+
+| Job | Cài gì | Thời gian |
+|---|---|---|
+| Unit test benchmark | numpy, pytest | 11s |
+| Partition tái lập được từ metadata | numpy | 9s |
+| quick_test trên clone sạch | numpy, pandas, scipy, torch CPU | 47s |
+
+Tách ba job để job logic trả lời trong ~10 giây, không phải đợi torch tải xong. Không có
+training nào trong CI, đúng ràng buộc plan.
+
+### 12.4. Hai lỗi CI bắt được
+
+**`quick_test.py` không thể fail.** Nó in ✅/❌ cho 6 hạng mục rồi kết thúc, không có
+`sys.exit()` nào trong cả script. Đưa nguyên trạng vào CI thì được một dấu tick xanh **không
+chứng minh điều gì** — tệ hơn là không có CI, vì nó tạo cảm giác an toàn giả. Đã thêm 4 dòng
+exit code.
+
+**`benchmark/__init__.py` kéo torch vào mọi import.** Commit `4b22dbc` (Người 3) thêm
+`from benchmark.data_quality import DataQualityAssessor` ở cấp package, mà `data_quality.py`
+`import torch` ở module level. Hệ quả:
+
+```
+import benchmark.partition_gen
+  → Python chạy benchmark/__init__.py TRƯỚC
+     → import data_quality → import torch   ← chết ở đây
+```
+
+`partition_gen.py` chỉ cần numpy nhưng **không import nổi nếu thiếu torch**. Hai job numpy-only
+đỏ ngay ở bước import. Trên máy dev không lộ vì venv có sẵn torch — đúng loại lỗi chỉ hiện trên
+clone sạch, tức chính cái DoD đang muốn chứng minh.
+
+Sửa bằng module `__getattr__` (PEP 562): torch chỉ nạp khi thực sự chạm tới
+`DataQualityAssessor`. Đường dùng `from benchmark import DataQualityAssessor` của Người 3 giữ
+nguyên, không phải sửa gì.
+
+> ⚠️ **Bẫy cho cả nhóm:** `benchmark/__init__.py` phải giữ nguyên import lười. Ai thêm một dòng
+> `from benchmark.X import Y` ở cấp package mà `X` kéo theo torch là **CI đỏ lại ngay**, và lỗi
+> sẽ hiện ra ở chỗ chẳng liên quan gì (`import benchmark.partition_gen`).
+
+### 12.5. Raw inputs được track
+
+`data/raw/hcm_osrm_dataset.csv` (2.9 MB) và `tomtom_traffic.csv` (1.8 MB) trước bị
+`.gitignore`. Hệ quả: `quick_test.py` không chạy nổi trên clone sạch, và máy thứ hai phải copy
+tay. Đã bỏ khỏi `.gitignore` và commit — tổng 4.7 MB, chưa cần Git LFS (GitHub chỉ cảnh báo từ
+50 MB). Chỉ checkpoint `.pt` là vẫn không track.
+
+### 12.6. Nợ kỹ thuật mới phát sinh
+
+`partitions_meta.json` giờ **2.2 MB**. Thiết kế ở `docs/khoa/03` §6 viết *"chỉ lưu index ⇒ file
+nhỏ, đọc được bằng mắt, diff được bằng git"* — ở 2.2 MB thì cả hai vế sau không còn đúng. Thủ
+phạm là `node_windows`, liệt kê từng chỉ số cửa sổ cho từng node.
+
+Về lý thuyết nó **thừa**: bản ghi đã có `seed` + `params` (tái lập được) và `mask_hash` (kiểm
+chứng được). Nhưng `scripts/eval_non_iid.py` dòng 262 đọc thẳng `partition["node_windows"]`, bỏ
+bây giờ là làm vỡ code Người 4. Đề xuất: thêm cờ `--no-node-windows`, bàn với Người 4 trước.
 
 ---
 
@@ -630,3 +754,10 @@ thật — đó là toàn bộ nguyên nhân vụ synthetic. Và nó vừa lặp
 
 **Trước khi debug, hỏi dữ liệu từ đâu ra.** Nhóm suýt bỏ một tuần debug `zone_weight` cho
 một thứ không hỏng.
+
+**Môi trường dev che lỗi của môi trường sạch.** `benchmark/__init__.py` kéo torch vào mọi
+import — chạy êm suốt 3 tuần trên máy có venv, đỏ ngay giây đầu trên CI. Cách duy nhất phát
+hiện là thật sự chạy ở nơi không có sẵn thư viện.
+
+**Một test không thể fail thì tệ hơn không có test.** `quick_test.py` in ❌ rồi vẫn exit 0 —
+đưa vào CI là có một dấu tick xanh bảo chứng cho không điều gì.
