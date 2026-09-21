@@ -19,8 +19,10 @@ env/
 .ipynb_checkpoints/
 
 # Data (large files — track with Git LFS or exclude)
-data/raw/tomtom_traffic.csv
-data/raw/hcm_osrm_dataset.csv
+# data/raw/tomtom_traffic.csv
+# data/raw/hcm_osrm_dataset.csv
+# Data: raw inputs duoc track de clone sach chay duoc ngay (2.9MB + 1.8MB).
+# Chi checkpoint model la khong track.
 
 # Model checkpoints (large binary)
 data/results/*.pt
