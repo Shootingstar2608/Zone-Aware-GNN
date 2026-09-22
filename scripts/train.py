@@ -26,6 +26,17 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from utils.normalizer import ZScoreNormalizer  # Tôn — Z-Score module
+from utils.eval_protocol import (
+    chronological_split,
+    fit_normalizers,
+    compute_metrics,
+    compute_zone_stratified_metrics,
+    evaluate_with_inverse,
+    MAPE_EPS,
+    PURGE_GAP_DEFAULT,
+    TRAIN_RATIO as _TRAIN_RATIO,
+    VAL_RATIO as _VAL_RATIO,
+)
 
 from models.zone_aware_gnn import ZoneAwareAHGNN  # fix: bỏ T_out
 from models.ah_gnn import AH_GNN
@@ -42,8 +53,9 @@ DATASET_PATH = "data/processed/graph_dataset.pt"
 META_PATH = "data/processed/meta.json"
 OUT_DIR = "data/results"
 
-TRAIN_RATIO = 0.7
-VAL_RATIO = 0.1
+# Re-export từ eval_protocol cho backward compatibility
+TRAIN_RATIO = _TRAIN_RATIO
+VAL_RATIO = _VAL_RATIO
 TEST_RATIO = 0.2
 EPOCHS = 100
 BATCH_SIZE = 32
@@ -55,18 +67,11 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 LAMBDA_COS = 0.1  # hệ số phạt cosine similarity giữa zone khác nhau
 
 # ══════════════════════════════════════════════════════════════════
-# TÔN — CHRONOLOGICAL SPLIT + NORMALIZATION CONSTANTS
-# Pipeline «CLEAN» (không data leakage): đây là pipeline chuẩn để
-# dùng khi báo cáo kết quả trong paper. Xem hàm chronological_split()
-# và ZScoreNormalizer để biết chi tiết từng bước.
+# TÔN — CHRONOLOGICAL SPLIT + NORMALIZATION
+# chronological_split, compute_metrics, compute_zone_stratified_metrics,
+# fit_normalizers, PURGE_GAP_DEFAULT, MAPE_EPS đã chuyển sang
+# utils/eval_protocol.py và import ở đầu file.
 # ══════════════════════════════════════════════════════════════════
-# Purge gap = T_in + T_out - 1 (tính động từ meta trong run_experiment)
-# Giá trị mặc định tương ứng meta.json hiện tại: T_in=12, T_out=24
-PURGE_GAP_DEFAULT = 35  # = 12 + 24 - 1
-
-# MAPE: loại mẫu có |true| < MAPE_EPS để tránh nhiễu chia-0
-# Y = congestion_ratio ∈ [0,1] → EPS=0.05 loại mẫu dưới 5% congestion
-MAPE_EPS = 0.05
 
 # Đường dẫn lưu stats normalizer để dùng lại lúc inference
 NORMALIZER_DIR = "data/processed"
@@ -97,58 +102,10 @@ ZONE_AWARE_VARIANTS = {
 
 
 # ──────────────────────────────────────────────
-# METRICS
+# METRICS — imported from utils.eval_protocol
+# compute_metrics() và compute_zone_stratified_metrics() đã chuyển
+# sang utils/eval_protocol.py. Import ở đầu file, re-export tự động.
 # ──────────────────────────────────────────────
-def compute_metrics(pred: torch.Tensor, true: torch.Tensor) -> dict:
-    """
-    pred, true: (S, N, T_out) — ĐÃ inverse-transform về đơn vị gốc.
-
-    MAE  : Mean Absolute Error
-    RMSE : Root Mean Squared Error
-    MAPE : Mean Absolute Percentage Error — chỉ tính trên mẫu |true| >= MAPE_EPS
-           (loại mẫu congestion_ratio < 5% để tránh nhiễu chia-gần-0). (Tôn)
-    WAPE : Weighted Absolute Percentage Error = Σ|err| / Σ|true| × 100
-           Luôn hữu hạn, không bị vô cực kể cả khi nhiều zero. (Tôn)
-    """
-    mae  = (pred - true).abs().mean().item()
-    rmse = ((pred - true) ** 2).mean().sqrt().item()
-
-    # MAPE — ngưỡng MAPE_EPS=0.05 nhất quán: chỉ lọc, chỉ chia trên tập đã lọc
-    mask = true.abs() >= MAPE_EPS
-    if mask.sum() > 0:
-        mape = ((pred - true).abs() / true.abs())[mask].mean().item() * 100
-    else:
-        mape = float("nan")  # không có mẫu hợp lệ (hiếm gặp)
-
-    # WAPE — metric phụ, robust hơn MAPE khi có nhiều zero
-    denom = true.abs().sum().item()
-    wape  = (pred - true).abs().sum().item() / (denom + 1e-8) * 100
-
-    return {"MAE": mae, "RMSE": rmse, "MAPE": mape, "WAPE": wape}
-
-
-def compute_zone_stratified_metrics(pred, true, Z, zone_types) -> dict:
-    """
-    Tính MAE riêng cho từng zone type.
-    Đây là metric chính chứng minh zone-awareness hiệu quả.
-    """
-    results = {}
-    Z_np = Z.cpu().numpy()
-    for k, zone in enumerate(zone_types):
-        node_mask = Z_np[:, k] == 1
-        if node_mask.sum() == 0:
-            continue
-        pred_z = pred[:, node_mask, :]
-        true_z = true[:, node_mask, :]
-        results[f"MAE_{zone}"] = (pred_z - true_z).abs().mean().item()
-
-    multi_mask = Z_np.sum(axis=1) > 1
-    if multi_mask.sum() > 0:
-        pred_m = pred[:, multi_mask, :]
-        true_m = true[:, multi_mask, :]
-        results["MAE_multi_zone"] = (pred_m - true_m).abs().mean().item()
-
-    return results
 
 
 # ──────────────────────────────────────────────
@@ -396,53 +353,9 @@ import random
 
 # ══════════════════════════════════════════════════════════════════
 # TÔN — CHRONOLOGICAL SPLIT VỚI PURGE GAP
-# Đây là bước quan trọng nhất để loại bỏ data leakage.
+# Đã chuyển sang utils/eval_protocol.py, import ở đầu file.
 # Pipeline «LEGACY» (random_split) đã bị XÓA khỏi train.py.
-# Nếu cần so sánh với pipeline cũ, dùng run_multi_seed.py với
-# --split-modes random_fixed (có cảnh báo rõ ràng ở đó).
 # ══════════════════════════════════════════════════════════════════
-def chronological_split(
-    S: int,
-    train_ratio: float = TRAIN_RATIO,
-    val_ratio: float = VAL_RATIO,
-    purge_gap: int = PURGE_GAP_DEFAULT,
-) -> tuple[list[int], list[int], list[int]]:
-    """
-    Chia S mẫu theo thứ tự thời gian với purge gap giữa các tập.
-
-    Purge gap = T_in + T_out - 1 loại bỏ các mẫu có cửa sổ trượt
-    chồng lấp với tập liền trước, ngăn model thấy future data.
-
-    Sơ đồ (S=637, T_in=12, T_out=24, gap=35):
-      |←── train=445 ──→|← 35 →|← val=64 →|← 35 →|←── test=58 ──→|
-       idx 0          444       480       543       578            636
-
-    Args:
-        S          : Tổng số mẫu (dataset_dict["X"].size(0)).
-        train_ratio: Tỷ lệ train (0.7).
-        val_ratio  : Tỷ lệ val   (0.1).
-        purge_gap  : = meta["T_in"] + meta["T_out"] - 1.
-
-    Returns:
-        train_idx, val_idx, test_idx — 3 list index không chồng lấp.
-    """
-    n_train = int(S * train_ratio)
-    n_val   = int(S * val_ratio)
-
-    val_start  = n_train + purge_gap
-    val_end    = val_start + n_val
-    test_start = val_end + purge_gap
-
-    if test_start >= S:
-        raise ValueError(
-            f"Dataset quá nhỏ ({S} mẫu) với purge_gap={purge_gap}. "
-            f"Cần ít nhất {n_train + n_val + 2 * purge_gap + 1} mẫu."
-        )
-
-    train_idx = list(range(0, n_train))
-    val_idx   = list(range(val_start, val_end))
-    test_idx  = list(range(test_start, S))
-    return train_idx, val_idx, test_idx
 
 
 def set_seed(seed=42):
@@ -493,17 +406,12 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
     )
 
     # ── Z-Score Normalization — fit CHỈ trên train (Tôn) ────────────────
-    x_normalizer = ZScoreNormalizer()
-    x_normalizer.fit(X[train_idx])
-
-    y_normalizer = ZScoreNormalizer()
-    y_normalizer.fit(Y[train_idx])
+    x_normalizer, y_normalizer, X_norm, Y_norm = fit_normalizers(
+        X, Y, train_idx
+    )
 
     print(f"  [Norm-X] {x_normalizer}")
     print(f"  [Norm-Y] {y_normalizer}")
-
-    X_norm = x_normalizer.transform(X)
-    Y_norm = y_normalizer.transform(Y)
 
     # Lưu stats để dùng lại khi inference (chỉ lưu với zone_full)
     if variant_name == "zone_full":

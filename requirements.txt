@@ -9,3 +9,4 @@ statsmodels
 jupyter
 requests
 python-dotenv
+pytest

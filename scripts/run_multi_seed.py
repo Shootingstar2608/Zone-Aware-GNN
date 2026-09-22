@@ -76,7 +76,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
+from torch.utils.data import DataLoader, Subset, TensorDataset
 
 # ── Cho phép import package `models` và `scripts` khi chạy từ bất kỳ đâu ──
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -91,17 +91,20 @@ from scripts.train import (  # noqa: E402
     EPOCHS,
     LR,
     PATIENCE,
-    TRAIN_RATIO,
-    VAL_RATIO,
     build_model,
-    chronological_split,   # Tôn — pipeline CLEAN
-    compute_metrics,
-    compute_zone_stratified_metrics,
     evaluate,
     set_seed,
     train_one_epoch,
 )
-from utils.normalizer import ZScoreNormalizer  # Tôn — Z-Score normalization
+from utils.eval_protocol import (  # noqa: E402
+    chronological_split,
+    fit_normalizers,
+    compute_metrics,
+    compute_zone_stratified_metrics,
+    get_git_commit_hash,
+    TRAIN_RATIO,
+    VAL_RATIO,
+)
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -160,10 +163,11 @@ def make_splits(full_ds, S: int, split_mode: str, seed: int, meta: dict):
     #  Chỉ dùng để so sánh lịch sử với kết quả cũ. KHÔNG đưa vào paper.
     # ══════════════════════════════════════════════════════════════════
     split_seed = 42 if split_mode == "random_fixed" else seed
+    from torch.utils.data import random_split as _random_split
     tmp_ds = TensorDataset(
         torch.arange(S)  # dummy, chỉ cần lấy index
     )
-    tmp_train, tmp_val, tmp_test = random_split(
+    tmp_train, tmp_val, tmp_test = _random_split(
         tmp_ds,
         [n_train, n_val, n_test],
         generator=torch.Generator().manual_seed(split_seed),
@@ -207,14 +211,10 @@ def run_once(
         full_ds, S, split_mode, seed, meta
     )
 
-    # ── Z-Score Normalization — fit CHỈ trên train_idx (mỗi seed riêng) ──
-    x_normalizer = ZScoreNormalizer()
-    x_normalizer.fit(X[train_idx])
-    y_normalizer = ZScoreNormalizer()
-    y_normalizer.fit(Y[train_idx])
-
-    X_norm = x_normalizer.transform(X)
-    Y_norm = y_normalizer.transform(Y)
+    # ── Z-Score Normalization — fit CHỈ trên train_idx ───────────────────
+    x_normalizer, y_normalizer, X_norm, Y_norm = fit_normalizers(
+        X, Y, train_idx
+    )
 
     full_ds_norm = TensorDataset(X_norm, Y_norm, TL)
     train_ds = Subset(full_ds_norm, train_idx)
@@ -295,13 +295,46 @@ def run_once(
         "train_time_s": round(time.time() - t0, 1),
         "device": DEVICE,
         "status": "ok",
+        "commit": get_git_commit_hash(),
         "timestamp": datetime.now().isoformat(timespec="seconds"),
     }
 
 
 # ══════════════════════════════════════════════════════════════
-# GHI CSV TĂNG DẦN (chống mất dữ liệu khi sweep dài)
+# CSV VERSIONING + GHI TĂNG DẦN
 # ══════════════════════════════════════════════════════════════
+def find_versioned_csv(base_path: str, resume: bool) -> str:
+    """
+    Tìm hoặc tạo CSV versioned: multiseed_runs_v{N}.csv
+    - resume=True: trả về file v{max} hiện có (hoặc v1 nếu chưa có).
+    - resume=False: tạo v{max+1} mới.
+    """
+    import glob
+    import re
+
+    directory = os.path.dirname(base_path)
+    basename = os.path.splitext(os.path.basename(base_path))[0]  # "multiseed_runs"
+    ext = os.path.splitext(base_path)[1]  # ".csv"
+
+    pattern = os.path.join(directory, f"{basename}_v*{ext}")
+    existing = glob.glob(pattern)
+
+    versions = []
+    for f in existing:
+        m = re.search(rf"_v(\d+){re.escape(ext)}$", f)
+        if m:
+            versions.append(int(m.group(1)))
+
+    if resume and versions:
+        v = max(versions)
+    elif versions:
+        v = max(versions) + 1
+    else:
+        v = 1
+
+    return os.path.join(directory, f"{basename}_v{v}{ext}")
+
+
 def append_row(row: dict, path: str):
     """Ghi ngay sau mỗi lần train xong. Sweep 90 lần train mà crash ở lần thứ
     80 rồi mất sạch thì rất đau — nên ghi từng dòng một."""
@@ -354,9 +387,22 @@ def main():
         action="store_true",
         help="Bỏ qua các (model, seed, split_mode) đã có trong CSV.",
     )
+    p.add_argument(
+        "--smoke",
+        action="store_true",
+        help="Smoke test: --epochs 5 --seeds 42 43 --split-modes chrono",
+    )
     p.add_argument("--save-checkpoints", action="store_true")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args()
+
+    # --smoke override
+    if args.smoke:
+        args.epochs = 5
+        args.seeds = [42, 43]
+        args.split_modes = ["chrono"]
+        if args.models == ["all"]:
+            args.models = ["proposed"]
 
     # Giải nghĩa group -> danh sách model
     variants = []
@@ -377,7 +423,10 @@ def main():
     with open(META_PATH, encoding="utf-8") as f:
         meta = json.load(f)
 
-    done = load_done_keys(args.out) if args.resume else set()
+    # CSV versioned path
+    csv_path = find_versioned_csv(args.out, resume=args.resume)
+
+    done = load_done_keys(csv_path) if args.resume else set()
 
     queue = [
         (v, s, sm)
@@ -398,7 +447,8 @@ def main():
     print(f"  Device      : {DEVICE}")
     print(f"  Bỏ qua      : {len(done)} lần chạy đã có (--resume)")
     print(f"  Cần chạy    : {total} lần train")
-    print(f"  Ghi vào     : {args.out}")
+    print(f"  Ghi vào     : {csv_path}")
+    print(f"  Commit      : {get_git_commit_hash()}")
     print("=" * 68)
 
     t_start = time.time()
@@ -438,13 +488,13 @@ def main():
                 "status": f"failed: {type(e).__name__}",
                 "timestamp": datetime.now().isoformat(timespec="seconds"),
             }
-        append_row(row, args.out)
+        append_row(row, csv_path)
 
     print("\n" + "=" * 68)
     print(f"  XONG {total - n_fail}/{total} lần chạy trong {(time.time()-t_start)/60:.1f} phút")
     if n_fail:
         print(f"  ⚠️  {n_fail} lần thất bại — xem cột `status` trong CSV")
-    print(f"  → Kết quả thô: {args.out}")
+    print(f"  → Kết quả thô: {csv_path}")
     print("  → Bước tiếp theo: python scripts/stat_analysis.py")
     print("=" * 68)
 

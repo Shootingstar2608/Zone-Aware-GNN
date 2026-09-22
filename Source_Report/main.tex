@@ -1,0 +1,150 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[T5]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[vietnamese]{babel}
+\usepackage{mathptmx} % Font Times New Roman chuẩn
+\usepackage{anyfontsize} % Hỗ trợ exact font size 15pt, 18pt
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{listingsutf8}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{longtable} 
+\usepackage{mdframed}
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\usepackage{pdfpages} % Hỗ trợ chèn file PDF D2, D3
+\usepackage{tikz}
+\usetikzlibrary{calc}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=2cm}
+
+% Code listing style
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    commentstyle=\color{gray},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    frame=single,
+    showstringspaces=false
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=blue,      
+    urlcolor=blue,
+    citecolor=black
+}
+
+%%% Custom section numbering & TOC depth
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{3}
+
+%%% Header & Footer setup
+\setlength{\headheight}{45pt}
+\pagestyle{fancy}
+\fancyhead{} % clear all header fields
+\fancyhead[L]{%
+  \begin{tabular}{rl}
+    \includegraphics[width=10mm]{IMAGE/LOGO HCMUT.png} &
+    \parbox[b]{13cm}{%
+      \textbf{TRƯỜNG ĐẠI HỌC BÁCH KHOA - ĐHQG-HCM}\\[1pt]
+      \textbf{KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}
+    }
+  \end{tabular}%
+}
+\fancyhead[R]{}
+
+\renewcommand{\headrulewidth}{0.5pt}
+\renewcommand{\footrulewidth}{0.5pt}
+\fancyfoot{} % clear all footer fields
+\fancyfoot[L]{\footnotesize Báo cáo môn học Đồ án Chuyên ngành - CO4029 - HK261}
+\fancyfoot[R]{\footnotesize Trang \thepage / \pageref{LastPage}}
+
+\begin{document}
+
+    % ==========================================
+    % TRANG BÌA CHUẨN MẪU M1 - THỰC TẬP NGOÀI TRƯỜNG
+    % ==========================================
+    \begin{titlepage}
+        \thispagestyle{empty}
+        \begin{tikzpicture}[remember picture, overlay]
+            \draw[line width = 2pt] ($(current page.north west) + (2.5cm,-2.0cm)$) rectangle ($(current page.south east) + (-1.5cm,2.0cm)$);
+            \draw[line width = 0.7pt] ($(current page.north west) + (2.55cm,-2.05cm)$) rectangle ($(current page.south east) + (-1.55cm,2.05cm)$);
+        \end{tikzpicture}
+        \begin{center}
+            {\fontsize{15pt}{18pt}\selectfont \textbf{ĐẠI HỌC QUỐC GIA THÀNH PHỐ HỒ CHÍ MINH}} \\[3pt]
+            {\fontsize{15pt}{18pt}\selectfont \textbf{TRƯỜNG ĐẠI HỌC BÁCH KHOA}} \\[3pt]
+            {\fontsize{15pt}{18pt}\selectfont \textbf{KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}} \\[1.2cm]
+            
+            \begin{figure}[H]
+                \centering
+                \includegraphics[width=3.2cm]{IMAGE/LOGO HCMUT.png}
+            \end{figure}
+            \vspace{0.8cm}
+            
+            {\fontsize{18pt}{22pt}\selectfont \textbf{BÁO CÁO MÔN HỌC}} \\[4pt]
+            {\fontsize{18pt}{22pt}\selectfont \textbf{ĐỒ ÁN CHUYÊN NGÀNH - CO4029}} \\[4pt]
+            
+            {\fontsize{15pt}{18pt}\selectfont \textbf{Học kỳ: 261 - Năm học: 2026 - 2027}} \\[3pt]
+        \end{center}
+        
+        \vspace{1.4cm} % Điều chỉnh cân đối trong khung viền
+        \hspace{-0.5cm}
+        \begin{minipage}{1.03\textwidth}
+            \fontsize{14pt}{20pt}\selectfont
+            \begin{tabular}{@{} >{\bfseries}r l @{}}
+                NGÀNH: & Khoa học Máy tính \\[0.25cm]
+                CHƯƠNG TRÌNH ĐÀO TẠO: & Đại học tiêu chuẩn \\[0.25cm]
+                GIẢNG VIÊN HƯỚNG DẪN 1: & PGS. TS. Trần Minh Quang \\[0.25cm]
+                GIẢNG VIÊN HƯỚNG DẪN 2: & ThS. Bùi Tiến Đức \\[0.25cm]
+                SINH VIÊN THỰC HIỆN: & Nguyễn Ngọc Tôn – 2313508 \\
+            \end{tabular}
+        \end{minipage}
+        
+        \vfill
+        \begin{center}
+            {\fontsize{15pt}{18pt}\selectfont TP. Hồ Chí Minh, Tháng 8 Năm 2026}
+        \end{center}
+        \vspace*{1.2cm} % Đẩy dòng thời gian lên cao cách xa khung viền dưới
+    \end{titlepage}
+    
+    \newpage
+    \tableofcontents
+    \newpage
+    
+    % ==========================================
+    % CÁC PHẦN NỘI DUNG BÁO CÁO
+    % ==========================================
+    
+    \section{Kết quả Đánh giá Non-IID Benchmark (HCM-Sim)}
+    Dưới đây là bảng kết quả tổng hợp chạy thống kê tự động từ module \texttt{generate\_report.py} (Phase 4.3). Toàn bộ thí nghiệm được đánh giá với phương pháp chia tập \textit{chronological split} (giữ nguyên purge gap) và normalization không rò rỉ.
+    
+    \input{results.tex}
+    
+    \section{Đánh giá độ ổn định Non-IID (Quantity Skew)}
+    Biểu đồ dưới đây (Hình \ref{fig:non_iid}) minh họa hiệu suất (MAE/MAPE) của các mô hình khi mức độ mất cân bằng dữ liệu tăng dần (được đo bằng hệ số Gini và tham số Alpha Dirichlet). Có thể thấy các mô hình đề xuất (Zone-Aware) giữ được độ suy giảm cực kỳ thấp (đường đi ngang) ngay cả khi môi trường Non-IID trở nên khắc nghiệt (Alpha nhỏ).
+    
+    \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.98\textwidth]{../data/results/non_iid_performance.png}
+        \caption{Hiệu suất mô hình theo mức độ Non-IID (Zone-Aware giữ ổn định tốt nhất)}
+        \label{fig:non_iid}
+    \end{figure}
+
+\end{document}
