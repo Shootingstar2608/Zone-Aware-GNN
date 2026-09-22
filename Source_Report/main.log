@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.7.27)  22 SEP 2026 20:04
+This is pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023/Debian) (preloaded format=pdflatex 2026.7.27)  22 SEP 2026 20:18
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1321,17 +1321,17 @@ Overfull \hbox (12.70744pt too wide) in paragraph at lines 6--18
  []
 
 )
-<../data/results/non_iid_performance.png, id=35, 1442.0274pt x 1263.2796pt>
+File: IMAGE/LOGO HCMUT.png Graphic file (type png)
+<use IMAGE/LOGO HCMUT.png>
+Package pdftex.def Info: IMAGE/LOGO HCMUT.png  used on input line 139.
+(pdftex.def)             Requested size: 28.45274pt x 28.75089pt.
+ [2]
+<../data/results/non_iid_performance.png, id=47, 1442.0274pt x 1263.2796pt>
 File: ../data/results/non_iid_performance.png Graphic file (type png)
 <use ../data/results/non_iid_performance.png>
 Package pdftex.def Info: ../data/results/non_iid_performance.png  used on input
  line 145.
 (pdftex.def)             Requested size: 446.13727pt x 390.84158pt.
-File: IMAGE/LOGO HCMUT.png Graphic file (type png)
-<use IMAGE/LOGO HCMUT.png>
-Package pdftex.def Info: IMAGE/LOGO HCMUT.png  used on input line 149.
-(pdftex.def)             Requested size: 28.45274pt x 28.75089pt.
- [2]
 File: IMAGE/LOGO HCMUT.png Graphic file (type png)
 <use IMAGE/LOGO HCMUT.png>
 Package pdftex.def Info: IMAGE/LOGO HCMUT.png  used on input line 150.
@@ -1348,22 +1348,22 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: DF75474BE10D14542FBEE0B7E17F1C91;611.
  ) 
 Here is how much of TeX's memory you used:
- 28250 strings out of 475670
- 513143 string characters out of 5784921
- 1969975 words of memory out of 5000000
- 49881 multiletter control sequences out of 15000+600000
+ 28256 strings out of 475670
+ 513278 string characters out of 5784921
+ 1968975 words of memory out of 5000000
+ 49884 multiletter control sequences out of 15000+600000
  607821 words of font info for 104 fonts, out of 8000000 for 9000
  264 hyphenation exceptions out of 8191
- 84i,21n,93p,682b,492s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,21n,93p,478b,492s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></us
 r/share/texlive/texmf-dist/fonts/type1/vntex/urwvn/utmb8v.pfb></usr/share/texli
 ve/texmf-dist/fonts/type1/vntex/urwvn/utmr8v.pfb></usr/share/texlive/texmf-dist
 /fonts/type1/vntex/urwvn/utmri8v.pfb></usr/share/texlive/texmf-dist/fonts/type1
 /vntex/vnr/vntt12.pfb>
-Output written on main.pdf (4 pages, 420874 bytes).
+Output written on main.pdf (4 pages, 421484 bytes).
 PDF statistics:
- 80 PDF objects out of 1000 (max. 8388607)
- 59 compressed objects within 1 object stream
- 11 named destinations out of 1000 (max. 500000)
+ 84 PDF objects out of 1000 (max. 8388607)
+ 63 compressed objects within 1 object stream
+ 14 named destinations out of 1000 (max. 500000)
  39 words of extra memory for PDF output out of 10000 (max. 10000000)
 

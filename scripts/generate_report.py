@@ -338,27 +338,33 @@ def generate_latex(summary, tests, metrics, df, non_iid_df=None) -> str:
     horizon_cols = [c for c in df.columns if c.startswith("MAE_") and c.split("_")[1].isdigit()]
     if horizon_cols:
         steps = sorted(list(set(int(c.split("_")[1]) for c in horizon_cols)))
-        lines.extend([
-            "",
-            "\\begin{table}[H]",
-            "\\centering",
-            "\\caption{Horizon Breakdown (Step-by-step MAE/RMSE)}",
-            "\\label{tab:horizon-breakdown}",
-            "\\resizebox{\\textwidth}{!}{%",
-            "\\begin{tabular}{l" + "cc" * len(steps) + "}",
-            "\\toprule",
-            "Model & " + " & ".join(f"\\multicolumn{{2}}{{c}}{{t={t}}}" for t in steps) + " \\\\",
-            "\\cmidrule(lr){2-" + str(2 * len(steps) + 1) + "}",
-            " & " + " & ".join(["MAE & RMSE"] * len(steps)) + " \\\\",
-            "\\midrule",
-        ])
-        for variant, group in df.groupby("variant"):
-            row_cells = []
-            for t in steps:
-                row_cells.append(f"{group[f'MAE_{t}'].mean():.4f}")
-                row_cells.append(f"{group[f'RMSE_{t}'].mean():.4f}")
-            lines.append(f"{tex_esc(variant)} & " + " & ".join(row_cells) + " \\\\")
-        lines.extend(["\\bottomrule", "\\end{tabular}", "}", "\\end{table}", ""])
+        chunk_size = 6
+        for i in range(0, len(steps), chunk_size):
+            chunk_steps = steps[i:i+chunk_size]
+            t_start = chunk_steps[0]
+            t_end = chunk_steps[-1]
+
+            lines.extend([
+                "",
+                "\\begin{table}[H]",
+                "\\centering",
+                f"\\caption{{Horizon Breakdown (t={t_start} to t={t_end})}}",
+                f"\\label{{tab:horizon-breakdown-{t_start}-{t_end}}}",
+                "\\resizebox{\\textwidth}{!}{%",
+                "\\begin{tabular}{l" + "cc" * len(chunk_steps) + "}",
+                "\\toprule",
+                "Model & " + " & ".join(f"\\multicolumn{{2}}{{c}}{{t={t}}}" for t in chunk_steps) + " \\\\",
+                "\\cmidrule(lr){2-" + str(2 * len(chunk_steps) + 1) + "}",
+                " & " + " & ".join(["MAE & RMSE"] * len(chunk_steps)) + " \\\\",
+                "\\midrule",
+            ])
+            for variant, group in df.groupby("variant"):
+                row_cells = []
+                for t in chunk_steps:
+                    row_cells.append(f"{group[f'MAE_{t}'].mean():.4f}")
+                    row_cells.append(f"{group[f'RMSE_{t}'].mean():.4f}")
+                lines.append(f"{tex_esc(variant)} & " + " & ".join(row_cells) + " \\\\")
+            lines.extend(["\\bottomrule", "\\end{tabular}", "}", "\\end{table}", ""])
 
     return "\n".join(lines)
 
