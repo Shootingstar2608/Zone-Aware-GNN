@@ -60,7 +60,9 @@ for _, row in df.iterrows():
         cnt[i][j] += 1
 cnt[cnt == 0] = 1
 A = A / cnt
-A_norm = np.where(A > 0, 1.0 / A, 0.0)
+# Tính degree matrix nghịch đảo an toàn (loại bỏ warning chia cho 0)
+with np.errstate(divide='ignore'):
+    A_norm = np.where(A > 0, 1.0 / A, 0.0)
 row_sum = A_norm.sum(axis=1, keepdims=True)
 row_sum[row_sum == 0] = 1
 A_norm = A_norm / row_sum
