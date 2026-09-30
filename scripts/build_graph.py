@@ -2,27 +2,57 @@
 Step 2: build_graph.py
 ======================
 Kết hợp 3 nguồn dữ liệu thành PyTorch Geometric dataset:
-  - OSRM  → Adjacency Matrix A
-  - TomTom → Node Features X_t (dynamic, per timestep)
+  - OSRM   → Adjacency Matrix A
+  - TomTom/HCM-Sim → Node Features X_t (dynamic, per timestep)
   - OSM    → Zone Labels Z (static, multi-hot)
 
-Chạy: python scripts/build_graph.py
-Output: data/processed/graph_dataset.pt
-        data/processed/meta.json
+Chạy (legacy, dữ liệu TomTom thật):
+    python scripts/build_graph.py
+    → data/processed/graph_dataset.pt, data/processed/meta.json
+
+Chạy cho HCM-Sim (Non-IID benchmark, dữ liệu synthetic — Bảo, tuần 2):
+    python scripts/build_graph.py \
+        --traffic-path data/raw/hcm_sim_traffic.csv \
+        --out-dir data/processed/hcm_sim_v1/ \
+        --t_in 12 --t_out 3
+    → data/processed/hcm_sim_v1/graph_dataset.pt, meta.json, manifest.json
+
+⚠️ Mặc định KHÔNG đổi (traffic-path=data/raw/tomtom_traffic.csv,
+   out-dir=data/processed) để không ghi đè dataset legacy. Chạy cho
+   HCM-Sim thì PHẢI truyền rõ --traffic-path/--out-dir như trên.
 
 [Bảo - tuần 2] Thêm hour_win, dow_win để SeasonalTimeEncoder
 dùng thông tin thời gian chính xác thay vì 4 nhãn rời rạc.
+
+[Bảo - tuần Non-IID benchmark] Thêm CLI --traffic-path/--out-dir/--t_in/--t_out,
+hash input (sha256) + git commit hash trong manifest.json, đánh dấu
+data_source (synthetic/unknown) trong meta.json — phục vụ provenance
+cho HCM-Sim benchmark, không đổi hành vi mặc định của pipeline cũ.
 """
 
 import os
 import json
 import math
+import hashlib
+import subprocess
+import sys
+from datetime import datetime, timezone
+
 import numpy as np
 import pandas as pd
 import torch
 
+# Windows console mac dinh dung cp1252, khong encode duoc cac ky tu Unicode
+# (vd: "✓", "✅", "📂") -> crash khi chay qua subprocess (khong co TTY that).
+# Ep stdout/stderr sang UTF-8 neu co the, bo qua neu moi truong khong ho tro.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # ──────────────────────────────────────────────
-# CONFIG
+# CONFIG (mặc định — giữ nguyên để backward-compat)
 # ──────────────────────────────────────────────
 OSRM_PATH = "data/raw/hcm_osrm_dataset.csv"
 TOMTOM_PATH = "data/raw/tomtom_traffic.csv"
@@ -43,6 +73,7 @@ ZONE_TYPES = [
 T_IN = 12
 T_OUT = 3
 
+
 def time_label_of(hour: int) -> int:
     """0 = night, 1 = rush_morning, 2 = rush_evening, 3 = normal.
 
@@ -57,6 +88,40 @@ def time_label_of(hour: int) -> int:
     if 16 <= hour < 20:
         return 2
     return 3
+
+
+# ══════════════════════════════════════════════
+# MODULE 0 (MỚI — Bảo, tuần Non-IID benchmark): Provenance helpers
+# ══════════════════════════════════════════════
+def compute_file_hash(path: str, algo: str = "sha256") -> str:
+    """Hash nội dung file (theo chunk, an toàn với file lớn)."""
+    h = hashlib.new(algo)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def get_git_commit_hash() -> str:
+    """Lấy commit hash hiện tại. Trả về 'unknown' nếu không phải git repo
+    hoặc git không có sẵn (ví dụ chạy trong CI container tối giản)."""
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+        )
+        return out.decode().strip()
+    except Exception:
+        return "unknown"
+
+
+def load_traffic_meta(traffic_path: str) -> dict | None:
+    """Đọc <traffic_path>.meta.json do generator ghi (nếu có).
+    File real TomTom (legacy) không có meta này → trả về None."""
+    meta_path = os.path.splitext(traffic_path)[0] + ".meta.json"
+    if os.path.exists(meta_path):
+        with open(meta_path) as f:
+            return json.load(f)
+    return None
 
 
 # ══════════════════════════════════════════════
@@ -83,7 +148,7 @@ def build_adjacency(df_osrm: pd.DataFrame, node2idx: dict) -> np.ndarray:
 
 
 # ══════════════════════════════════════════════
-# MODULE 2: Build Node Features từ TomTom
+# MODULE 2: Build Node Features từ TomTom / HCM-Sim
 # [Bảo] Thêm trả về hour_list và dow_list
 # ══════════════════════════════════════════════
 def build_node_features_tomtom(
@@ -135,10 +200,9 @@ def build_node_features_tomtom(
         hour = ts_obj.hour
         dow = ts_obj.dayofweek
 
-        # time_list.append(TIME_LABEL_MAP.get(hour, 3))
         time_list.append(time_label_of(hour))
-        hour_list.append(hour)  # ← MỚI
-        dow_list.append(dow)  # ← MỚI
+        hour_list.append(hour)
+        dow_list.append(dow)
         X_list.append(feat)
 
     X = np.stack(X_list, axis=0)  # (T, N, F)
@@ -168,7 +232,6 @@ def build_node_features_osrm_proxy(
                 cnt[i, 0] += 1
         cnt[cnt == 0] = 1
         feat = feat / cnt
-        # time_list.append(TIME_LABEL_MAP.get(hour, 3))
         time_list.append(time_label_of(hour))
         hour_list.append(hour)
         dow_list.append(2)  # fallback: Wednesday (mid-week)
@@ -226,6 +289,9 @@ def create_samples(
       H_win   : (S,)         — giờ thực tế 0-23        ← MỚI
       D_win   : (S,)         — ngày trong tuần 0-6      ← MỚI
       Sinc_win: (S, 8)       — sinusoidal encoding      ← MỚI
+
+    Công thức số lượng sample: S = T - t_in - t_out + 1
+    (test riêng ở tests/test_data_pipeline.py::test_sliding_window_sample_count_formula)
     """
     T = X.shape[0]
     X_w, Y_w, T_w, H_w, D_w, Sinc_w = [], [], [], [], [], []
@@ -264,19 +330,54 @@ def create_samples(
 # ══════════════════════════════════════════════
 import argparse
 
-def main():
-    # ===================================================================================================================================
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--t_out", type=int, default=3, help="Prediction horizon")
-    args = parser.parse_args()
-    global T_OUT
-    T_OUT = args.t_out
-    # ===================================================================================================================================
 
-    os.makedirs(OUT_DIR, exist_ok=True)
+def main():
+    parser = argparse.ArgumentParser()
+    # --t_out / --t-out: giữ alias cũ (--t_out) để backward-compat với
+    # script/CI hiện có, đồng thời hỗ trợ dạng dash theo spec HCM-Sim.
+    parser.add_argument(
+        "--t_out",
+        "--t-out",
+        dest="t_out",
+        type=int,
+        default=T_OUT,
+        help="Prediction horizon",
+    )
+    parser.add_argument(
+        "--t_in",
+        "--t-in",
+        dest="t_in",
+        type=int,
+        default=T_IN,
+        help="Input window length",
+    )
+    parser.add_argument(
+        "--traffic-path",
+        dest="traffic_path",
+        type=str,
+        default=TOMTOM_PATH,
+        help="Duong dan file traffic dong (TomTom that HOAC HCM-Sim synthetic). "
+        "Mac dinh la file legacy (TomTom that) de KHONG doi hanh vi cu.",
+    )
+    parser.add_argument(
+        "--out-dir",
+        dest="out_dir",
+        type=str,
+        default=OUT_DIR,
+        help="Thu muc output. Mac dinh la thu muc legacy. Voi HCM-Sim, truyen "
+        "vi du data/processed/hcm_sim_v1/ de KHONG ghi de dataset cu.",
+    )
+    args = parser.parse_args()
+
+    traffic_path = args.traffic_path
+    out_dir = args.out_dir
+    t_in = args.t_in
+    t_out = args.t_out
+
+    os.makedirs(out_dir, exist_ok=True)
 
     # --- OSRM ---
-    print(f"📂 Loading OSRM data... (T_out={T_OUT})")
+    print(f"📂 Loading OSRM data... (T_in={t_in}, T_out={t_out})")
     df_osrm = pd.read_csv(OSRM_PATH)
     nodes = sorted(df_osrm["origin"].unique().tolist())
     node2idx = {n: i for i, n in enumerate(nodes)}
@@ -288,9 +389,15 @@ def main():
     print(f"  A shape: {A.shape}, non-zero: {np.count_nonzero(A)}")
 
     # --- Node Features ---
-    if os.path.exists(TOMTOM_PATH):
-        print("⚡ TomTom data found — using real traffic features (F=4)")
-        df_tt = pd.read_csv(TOMTOM_PATH)
+    traffic_meta = load_traffic_meta(traffic_path)
+    data_source = (traffic_meta or {}).get("data_source", "unknown")
+
+    if os.path.exists(traffic_path):
+        tag = "SYNTHETIC (HCM-Sim)" if data_source == "synthetic" else "traffic"
+        print(
+            f"⚡ Traffic data found ({tag}) — using real-shaped features (F=4): {traffic_path}"
+        )
+        df_tt = pd.read_csv(traffic_path)
         X, time_labels, hour_list, dow_list = build_node_features_tomtom(
             df_tt, node2idx, nodes
         )
@@ -301,13 +408,17 @@ def main():
             "ff_ratio",
         ]
     else:
-        print("⚠️  TomTom data NOT found — using OSRM speed proxy (F=1)")
+        print(
+            f"⚠️  Traffic data NOT found at {traffic_path} — using OSRM speed proxy (F=1)"
+        )
         X, time_labels, hour_list, dow_list = build_node_features_osrm_proxy(
             df_osrm, node2idx, nodes
         )
         feature_names = ["speed_kmh"]
+        data_source = data_source if data_source != "unknown" else "osrm_proxy"
 
     print(f"  X shape: {X.shape} (T, N, F)")
+    print(f"  data_source: {data_source}")
 
     # --- Zone Labels ---
     if os.path.exists(ZONE_PATH):
@@ -321,14 +432,15 @@ def main():
         Z = np.zeros((N, len(ZONE_TYPES)))
 
     # --- Sliding Windows ---
-    print(f"🪟  Creating windows (T_in={T_IN}, T_out={T_OUT})...")
+    print(f"🪟  Creating windows (T_in={t_in}, T_out={t_out})...")
     X_win, Y_win, T_win, H_win, D_win, Sinc_win = create_samples(
-        X, time_labels, hour_list, dow_list, T_IN, T_OUT
+        X, time_labels, hour_list, dow_list, t_in, t_out
     )
     print(f"  Samples     : {X_win.shape[0]}")
     print(f"  hour range  : {H_win.min()}-{H_win.max()}")
     print(f"  dow  range  : {D_win.min()}-{D_win.max()}")
     print(f"  sinc shape  : {Sinc_win.shape}")
+    print(f"  time labels : {sorted(set(T_win.tolist()))} (kỳ vọng đủ [0,1,2,3])")
 
     # --- Tensors ---
     A_t = torch.tensor(A, dtype=torch.float32)
@@ -336,38 +448,41 @@ def main():
     X_t = torch.tensor(X_win, dtype=torch.float32)
     Y_t = torch.tensor(Y_win, dtype=torch.float32)
     T_t = torch.tensor(T_win, dtype=torch.long)
-    H_t = torch.tensor(H_win, dtype=torch.long)  # ← MỚI
-    D_t = torch.tensor(D_win, dtype=torch.long)  # ← MỚI
-    Sinc_t = torch.tensor(Sinc_win, dtype=torch.float32)  # ← MỚI
+    H_t = torch.tensor(H_win, dtype=torch.long)
+    D_t = torch.tensor(D_win, dtype=torch.long)
+    Sinc_t = torch.tensor(Sinc_win, dtype=torch.float32)
 
-    # --- Save ---
+    # --- Save dataset ---
     dataset = {
         "A": A_t,  # (N, N)
         "Z": Z_t,  # (N, K)
         "X": X_t,  # (S, N, T_in*F)
         "Y": Y_t,  # (S, N, T_out)
-        "time_labels": T_t,  # (S,)   — 4 nhãn rời rạc (backward compat)
-        "hour": H_t,  # (S,)   — giờ thực 0-23
-        "dow": D_t,  # (S,)   — ngày trong tuần 0-6
-        "time_sinc": Sinc_t,  # (S, 8) — sinusoidal encoding
+        "time_labels": T_t,  # (S,)
+        "hour": H_t,  # (S,)
+        "dow": D_t,  # (S,)
+        "time_sinc": Sinc_t,  # (S, 8)
         "nodes": nodes,
         "feature_names": feature_names,
         "zone_types": ZONE_TYPES,
     }
-    torch.save(dataset, os.path.join(OUT_DIR, "graph_dataset.pt"))
+    dataset_path = os.path.join(out_dir, "graph_dataset.pt")
+    torch.save(dataset, dataset_path)
 
+    # --- Save meta.json (đánh dấu rõ data_source, kể cả synthetic) ---
     meta = {
         "N": N,
         "K": len(ZONE_TYPES),
         "F": len(feature_names),
-        "T_in": T_IN,
-        "T_out": T_OUT,
+        "T_in": t_in,
+        "T_out": t_out,
         "S": X_win.shape[0],
         "nodes": nodes,
         "feature_names": feature_names,
         "zone_types": ZONE_TYPES,
-        "has_tomtom": os.path.exists(TOMTOM_PATH),
+        "has_traffic": os.path.exists(traffic_path),
         "has_zones": os.path.exists(ZONE_PATH),
+        "data_source": data_source,  # "synthetic" | "unknown" | "osrm_proxy"
         "time_fields": [
             "time_labels (discrete)",
             "hour (0-23)",
@@ -375,14 +490,39 @@ def main():
             "time_sinc (8-dim sinusoidal)",
         ],
     }
-    with open(os.path.join(OUT_DIR, "meta.json"), "w") as f:
+    with open(os.path.join(out_dir, "meta.json"), "w") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"\n✅ Saved to {OUT_DIR}/graph_dataset.pt")
-    print(f"   New fields: hour, dow, time_sinc")
-    print(
-        f"   SeasonalTimeEncoder can now use exact hour/dow instead of 4 discrete labels"
-    )
+    # --- Save manifest.json (provenance: hash input + git commit) ---
+    manifest = {
+        "dataset_id": os.path.basename(os.path.normpath(out_dir)),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "git_commit": get_git_commit_hash(),
+        "data_source": data_source,
+        "osrm_path": OSRM_PATH,
+        "osrm_sha256": (
+            compute_file_hash(OSRM_PATH) if os.path.exists(OSRM_PATH) else None
+        ),
+        "zone_path": ZONE_PATH,
+        "zone_sha256": (
+            compute_file_hash(ZONE_PATH) if os.path.exists(ZONE_PATH) else None
+        ),
+        "traffic_path": traffic_path,
+        "traffic_sha256": (
+            compute_file_hash(traffic_path) if os.path.exists(traffic_path) else None
+        ),
+        "traffic_meta": traffic_meta,  # None nếu traffic thật (legacy, không có .meta.json)
+        "t_in": t_in,
+        "t_out": t_out,
+        "num_nodes": N,
+        "num_samples": int(X_win.shape[0]),
+    }
+    with open(os.path.join(out_dir, "manifest.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+
+    print(f"\n✅ Saved to {out_dir}/")
+    print(f"   graph_dataset.pt, meta.json, manifest.json")
+    print(f"   data_source = {data_source}")
 
 
 if __name__ == "__main__":
