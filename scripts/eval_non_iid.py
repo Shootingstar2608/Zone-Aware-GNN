@@ -50,13 +50,18 @@ from scripts.train import (
     PATIENCE,
     ZONE_AWARE_VARIANTS,
     build_model,
-    compute_metrics,
-    compute_zone_stratified_metrics,
     evaluate,
     get_zone_embeddings,
     compute_cosine_reg,
     set_seed,
     train_one_epoch,
+)
+from utils.eval_protocol import (
+    chronological_split,
+    fit_normalizers,
+    compute_metrics,
+    compute_zone_stratified_metrics,
+    get_git_commit_hash,
 )
 from benchmark.partition_gen import (
     assert_no_leakage,
@@ -113,38 +118,28 @@ def generate_quantity_partitions(
     """
     Sinh partition Quantity Skew cho mỗi alpha trong `alphas`.
     Lưu vào PARTITION_PATH. Trả về list records.
+
+    Split: chrono split toàn bộ dataset TRƯỚC → node mask chỉ ảnh hưởng loss.
     """
     S = meta["S"]
     N = meta["N"]
     gap = overlap_gap(meta)
     records = []
 
+    # Chrono split trên toàn bộ dataset (giống train.py)
+    purge_gap = meta["T_in"] + meta["T_out"] - 1
+    train_idx, val_idx, test_idx = chronological_split(
+        S, 0.7, 0.1, purge_gap=purge_gap
+    )
+
     for alpha in alphas:
         partition_id = f"quantity_skew_a{alpha}_s{seed}"
         mask, stats = quantity_skew(S, N, alpha=alpha, seed=seed)
 
-        # Từ mask → train/val/test index (theo node trung bình)
-        # Dùng union: sample s vào train nếu ít nhất 1 node có dữ liệu tại s
-        has_data = mask.any(axis=1)  # (S,) bool
-        valid_idx = np.where(has_data)[0]
-
-        n_tr = int(len(valid_idx) * 0.7)
-        n_va = int(len(valid_idx) * 0.1)
-        train_idx = valid_idx[:n_tr]
-        val_idx = valid_idx[n_tr : n_tr + n_va]
-        test_idx = valid_idx[n_tr + n_va :]
-
-        # Kiểm tra leakage
-        try:
-            assert_no_leakage(train_idx, test_idx, gap)
-        except ValueError as e:
-            print(f"  ⚠️  Partition {partition_id}: {e} — purging border samples")
-            test_idx = test_idx[test_idx > train_idx[-1] + gap]
-
         splits = {
-            "train": train_idx.tolist(),
-            "val": val_idx.tolist(),
-            "test": test_idx.tolist(),
+            "train": train_idx,
+            "val": val_idx,
+            "test": test_idx,
         }
 
         rec = build_record(
@@ -230,9 +225,16 @@ def train_on_partition(
     dataset: dict,
     partition: dict,
     seed: int = 42,
+    epochs: int = EPOCHS,
 ) -> dict:
     """
     Train model `variant` trên partition đã cho, trả về metrics + stats.
+
+    Protocol sạch:
+      1. Chrono split toàn bộ dataset (cùng protocol với train.py)
+      2. Fit normalizer CHỈ trên train
+      3. Node mask ảnh hưởng loss, KHÔNG ảnh hưởng split
+      4. Inverse-transform trước khi tính metrics
     """
     set_seed(seed)
 
@@ -243,9 +245,9 @@ def train_on_partition(
     TL = dataset["time_labels"]
 
     splits = partition["splits"]
-    train_idx = torch.tensor(splits["train"], dtype=torch.long)
-    val_idx = torch.tensor(splits["val"], dtype=torch.long)
-    test_idx = torch.tensor(splits["test"], dtype=torch.long)
+    train_idx = splits["train"]
+    val_idx = splits["val"]
+    test_idx = splits["test"]
 
     # Nếu partition quá nhỏ để train → skip
     if len(train_idx) < BATCH_SIZE:
@@ -253,6 +255,11 @@ def train_on_partition(
             "skip": True,
             "reason": f"train_size={len(train_idx)} < batch_size={BATCH_SIZE}",
         }
+
+    # ── Fit normalizer CHỈ trên train (cùng protocol với train.py) ──────
+    x_normalizer, y_normalizer, X_norm, Y_norm = fit_normalizers(
+        X, Y, train_idx
+    )
 
     # Phục hồi mask (S, N) để thực hiện loss masking
     S = meta["S"]
@@ -264,9 +271,9 @@ def train_on_partition(
     else:
         M = torch.ones((S, N), dtype=torch.float32)
 
-    train_ds = TensorDataset(X[train_idx], Y[train_idx], TL[train_idx], M[train_idx])
-    val_ds = TensorDataset(X[val_idx], Y[val_idx], TL[val_idx])
-    test_ds = TensorDataset(X[test_idx], Y[test_idx], TL[test_idx])
+    train_ds = TensorDataset(X_norm[train_idx], Y_norm[train_idx], TL[train_idx], M[train_idx])
+    val_ds = TensorDataset(X_norm[val_idx], Y_norm[val_idx], TL[val_idx])
+    test_ds = TensorDataset(X_norm[test_idx], Y_norm[test_idx], TL[test_idx])
 
     train_loader = DataLoader(train_ds, BATCH_SIZE, shuffle=True, drop_last=True)
     val_loader = DataLoader(val_ds, BATCH_SIZE, shuffle=False)
@@ -286,12 +293,15 @@ def train_on_partition(
     best_state = None
 
     t0 = time.time()
-    for epoch in range(1, EPOCHS + 1):
+    for epoch in range(1, epochs + 1):
         train_one_epoch_masked(
             model, train_loader, optimizer, A, Z, DEVICE, lambda_cos=lambda_cos
         )
+        # Inverse-transform val trước khi tính metrics
         val_preds, val_trues = evaluate(model, val_loader, A, Z, DEVICE)
-        val_metrics = compute_metrics(val_preds, val_trues)
+        val_preds_real = y_normalizer.inverse_transform(val_preds)
+        val_trues_real = y_normalizer.inverse_transform(val_trues)
+        val_metrics = compute_metrics(val_preds_real, val_trues_real)
         scheduler.step(val_metrics["MAE"])
 
         if val_metrics["MAE"] < best_val_mae:
@@ -306,16 +316,21 @@ def train_on_partition(
     elapsed = time.time() - t0
     model.load_state_dict(best_state)
     test_preds, test_trues = evaluate(model, test_loader, A, Z, DEVICE)
-    test_metrics = compute_metrics(test_preds, test_trues)
+
+    # ── Inverse-transform về đơn vị gốc TRƯỚC khi tính metric ───────────
+    test_preds_real = y_normalizer.inverse_transform(test_preds)
+    test_trues_real = y_normalizer.inverse_transform(test_trues)
+
+    test_metrics = compute_metrics(test_preds_real, test_trues_real)
     zone_metrics = compute_zone_stratified_metrics(
-        test_preds, test_trues, Z.cpu(), meta["zone_types"]
+        test_preds_real, test_trues_real, Z.cpu(), meta["zone_types"]
     )
 
     stats = partition.get("stats", {})
     zero_nodes = stats.get("zero_nodes", [])
     if len(zero_nodes) > 0:
         zero_node_mae = (
-            (test_preds[:, zero_nodes, :] - test_trues[:, zero_nodes, :])
+            (test_preds_real[:, zero_nodes, :] - test_trues_real[:, zero_nodes, :])
             .abs()
             .mean()
             .item()
@@ -334,6 +349,7 @@ def train_on_partition(
         "test_size": len(test_idx),
         "seed": seed,
         "elapsed_s": round(elapsed, 1),
+        "commit": get_git_commit_hash(),
         **test_metrics,
         **zone_metrics,
     }
@@ -559,6 +575,7 @@ def main():
         default=DEFAULT_MODELS,
         help="Danh sách variant cần đánh giá",
     )
+    parser.add_argument("--epochs", type=int, default=EPOCHS, help="Số epochs train")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--skip_train",
@@ -632,7 +649,9 @@ def main():
         for variant in args.models:
             done += 1
             print(f"\n  [{done}/{total}] {variant} | alpha={alpha}")
-            row = train_on_partition(variant, meta, dataset, partition, seed=args.seed)
+            row = train_on_partition(
+                variant, meta, dataset, partition, seed=args.seed, epochs=args.epochs
+            )
 
             if row.get("skip"):
                 print(f"  ⚠️  Skipped: {row['reason']}")
