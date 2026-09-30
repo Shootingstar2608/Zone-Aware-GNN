@@ -1,22 +1,22 @@
 % Sinh tự động bởi scripts/stat_analysis.py
-% split_mode = chrono, n = 5 seeds
+% split_mode = chrono, n = 10 seeds
 \begin{table}[t]
 \centering
-\caption{Kết quả trên tập test, trung bình $\pm$ độ lệch chuẩn trên 5 seed ngẫu nhiên. Ký hiệu $^{*}$/$^{**}$/$^{***}$ chỉ mức $p<0.05$/$0.01$/$0.001$ so với baseline mạnh nhất (GCN-GRU), t-test đã hiệu chỉnh Holm.}
+\caption{Kết quả trên tập test, trung bình $\pm$ độ lệch chuẩn trên 10 seed ngẫu nhiên. Ký hiệu $^{*}$/$^{**}$/$^{***}$ chỉ mức $p<0.05$/$0.01$/$0.001$ so với baseline mạnh nhất (GCN-GRU), t-test đã hiệu chỉnh Holm.}
 \label{tab:main-results-chrono}
 \begin{tabular}{lccc}
 \toprule
 Model & MAE & RMSE & MAPE \\
 \midrule
-LSTM & \textbf{0.2482} $\pm$ \textbf{0.0028} & 0.3000 $\pm$ 0.0027 & \textbf{18.7364} $\pm$ \textbf{0.4028} \\
-STGCN & 0.2656 $\pm$ 0.0055 & 0.3232 $\pm$ 0.0123 & 20.1968 $\pm$ 0.2979 \\
-GCN-GRU & 0.2534 $\pm$ 0.0044 & 0.3111 $\pm$ 0.0106 & 19.0990 $\pm$ 0.3102 \\
-AH-GNN (no zone) & 0.2681 $\pm$ 0.0025 & 0.3171 $\pm$ 0.0055 & 21.1937 $\pm$ 0.1786 \\
-\; + zone concat & 0.2532 $\pm$ 0.0024 & 0.3102 $\pm$ 0.0120 & 18.9135 $\pm$ 0.4140 \\
-\; + zone weight & 0.2539 $\pm$ 0.0043 & 0.3040 $\pm$ 0.0076 & 19.1802 $\pm$ 0.3566 \\
-Zone-Aware AH-GNN & 0.2489 $\pm$ 0.0043 & \textbf{0.2912} $\pm$ \textbf{0.0047} & 19.2649 $\pm$ 0.3885 \\
-\; + sinusoidal time & 0.2510 $\pm$ 0.0029 & 0.2978 $\pm$ 0.0041 & 19.5618 $\pm$ 0.5404 \\
-\; + time-conditioned & 0.2499 $\pm$ 0.0046 & 0.2975 $\pm$ 0.0109 & 19.1987 $\pm$ 0.3653 \\
+LSTM & 0.2485 $\pm$ 0.0023 & 0.3012 $\pm$ 0.0031 & \textbf{18.7485} $\pm$ \textbf{0.3459} \\
+STGCN & 0.2673 $\pm$ 0.0057 & 0.3300 $\pm$ 0.0117 & 19.9431 $\pm$ 0.6852 \\
+GCN-GRU & 0.2550 $\pm$ 0.0037 & 0.3134 $\pm$ 0.0086 & 19.2241 $\pm$ 0.2701 \\
+AH-GNN (no zone) & 0.2671 $\pm$ 0.0032 & 0.3157 $\pm$ 0.0055 & 21.1295 $\pm$ 0.2268 \\
+\; + zone concat & 0.2514 $\pm$ 0.0035 & 0.3099 $\pm$ 0.0126 & 18.7512 $\pm$ 0.3801 \\
+\; + zone weight & 0.2536 $\pm$ 0.0034 & 0.3021 $\pm$ 0.0065 & 19.2777 $\pm$ 0.3122 \\
+Zone-Aware AH-GNN & 0.2500 $\pm$ 0.0033 & \textbf{0.2937} $\pm$ \textbf{0.0080} & 19.3471 $\pm$ 0.3195$^{**}$ \\
+\; + sinusoidal time & \textbf{0.2483} $\pm$ \textbf{0.0035} & 0.2946 $\pm$ 0.0058 & 19.2402 $\pm$ 0.5162 \\
+\; + time-conditioned & 0.2508 $\pm$ 0.0040 & 0.2962 $\pm$ 0.0078 & 19.3382 $\pm$ 0.3864$^{*}$ \\
 \bottomrule
 \end{tabular}
 \end{table}

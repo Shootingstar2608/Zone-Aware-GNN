@@ -238,3 +238,9 @@ checks = [
 for name, ok in checks:
     icon = "✅" if ok else "❌"
     print(f"  {icon} {name}")
+
+failed = [name for name, ok in checks if not ok]
+if failed:
+    print(f"\n❌ {len(failed)}/{len(checks)} hạng mục thiếu: {', '.join(failed)}")
+    sys.exit(1)
+print(f"\n✅ {len(checks)}/{len(checks)} hạng mục OK")
