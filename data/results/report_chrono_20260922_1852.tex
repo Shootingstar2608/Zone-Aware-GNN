@@ -1,0 +1,18 @@
+% split_mode = chrono, n = 2 seeds
+\begin{table}[H]
+\centering
+\caption{Results (mean $\pm$ std over 2 seeds, Holm-corrected significance)}
+\label{tab:results-chrono}
+\begin{tabular}{lcccc}
+\toprule
+Model & MAE & RMSE & MAPE & WAPE \\
+\midrule
+zone\_full\_tc & \textbf{0.2470} $\pm$ 0.0055 & \textbf{0.2891} $\pm$ 0.0065 & 18.9231 $\pm$ 0.2863 & \textbf{19.2734} $\pm$ 0.4272 \\
+zone\_full\_sinc & 0.2490 $\pm$ 0.0069 & 0.2925 $\pm$ 0.0011 & 19.0696 $\pm$ 0.5216 & 19.4276 $\pm$ 0.5393 \\
+zone\_full & 0.2529 $\pm$ 0.0011 & 0.2906 $\pm$ 0.0003 & 19.6546 $\pm$ 0.0642 & 19.7322 $\pm$ 0.0868 \\
+gcn\_gru & 0.2520 $\pm$ 0.0010 & 0.3093 $\pm$ 0.0017 & 18.9446 $\pm$ 0.0075 & 19.6661 $\pm$ 0.0771 \\
+lstm & 0.2479 $\pm$ 0.0015 & 0.3017 $\pm$ 0.0031 & \textbf{18.6156} $\pm$ 0.2819 & 19.3470 $\pm$ 0.1150 \\
+stgcn & 0.2652 $\pm$ 0.0073 & 0.3266 $\pm$ 0.0111 & 19.4223 $\pm$ 0.5385 & 20.6983 $\pm$ 0.5707 \\
+\bottomrule
+\end{tabular}
+\end{table}
