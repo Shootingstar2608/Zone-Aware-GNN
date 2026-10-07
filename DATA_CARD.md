@@ -10,9 +10,32 @@
 > Zone-Aware GNN (dự đoán tắc nghẽn giao thông theo vùng). Tham khảo
 > checklist trước khi công bố/chia sẻ dữ liệu ra ngoài nhóm nghiên cứu.
 
+> **Cập nhật quan trọng — HCM-Sim v1 là benchmark chính hiện tại.** Nó là dữ
+> liệu **synthetic**, tạo từ biểu đồ/zone artifacts OSM–OSRM và một bộ sinh mô
+> phỏng xác định; không chứa hay đại diện cho đo đạc TomTom thực. Tài liệu từ
+> mục 2.3 trở đi mô tả pipeline TomTom lịch sử, không được gán cho HCM-Sim v1.
+> Contract nguồn và giới hạn: `docs/hcm_sim_v1_spec.md`.
+
 ---
 
 ## 1. Tổng quan
+
+### 1.1 HCM-Sim v1 (dataset dùng cho benchmark hiện tại)
+
+| Thuộc tính | Giá trị đã chốt |
+|---|---|
+| Loại dữ liệu | Synthetic traffic time series; seed 42, tái tạo được |
+| Không gian | 17 node TP.HCM, adjacency và 8 zone labels từ artifacts OSM/OSRM |
+| Thời gian | 7 ngày × 96 snapshot/ngày, interval 15 phút, bắt đầu thứ Hai 00:00 |
+| Schema | `A`, `Z`, `X`, `Y`, `time_labels`, `meta.json`, `manifest.json` |
+| Forecast | `T_in=12`, `T_out=24`, 4 feature: congestion ratio, delay, travel time, ff ratio |
+| Samples | 637 cửa sổ; time label gồm night/rush morning/rush evening/normal |
+| Protocol | chronological 70/10/20 với purge gap 35; partition metadata fingerprinted |
+
+Canonical paths: `data/generated/hcm_sim_v1/hcm_sim_traffic.csv` và
+`data/processed/hcm_sim_v1/`. File processed/manifest ghi hash đầu vào; mọi
+partition phải được tạo lại khi hash dataset đổi. HCM-Sim chỉ chứng minh tính
+tái lập và độ bền theo kịch bản Non-IID; không đủ để kết luận về traffic thật.
 
 Dữ liệu benchmark được tổng hợp từ **3 nguồn độc lập**, mỗi nguồn phục vụ
 một vai trò khác nhau trong đồ thị giao thông theo vùng (zone-aware graph):

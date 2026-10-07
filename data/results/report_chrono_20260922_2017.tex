@@ -1,0 +1,110 @@
+% split_mode = chrono, n = 2 seeds
+\begin{table}[H]
+\centering
+\caption{Results (mean $\pm$ std over 2 seeds, Holm-corrected significance)}
+\label{tab:results-chrono}
+\begin{tabular}{lcccc}
+\toprule
+Model & MAE & RMSE & MAPE & WAPE \\
+\midrule
+zone\_full\_tc & \textbf{0.2470} $\pm$ 0.0055 & \textbf{0.2891} $\pm$ 0.0065 & 18.9231 $\pm$ 0.2863 & \textbf{19.2734} $\pm$ 0.4272 \\
+zone\_full\_sinc & 0.2490 $\pm$ 0.0069 & 0.2925 $\pm$ 0.0011 & 19.0696 $\pm$ 0.5216 & 19.4276 $\pm$ 0.5393 \\
+zone\_full & 0.2529 $\pm$ 0.0011 & 0.2906 $\pm$ 0.0003 & 19.6546 $\pm$ 0.0642 & 19.7322 $\pm$ 0.0868 \\
+gcn\_gru & 0.2520 $\pm$ 0.0010 & 0.3093 $\pm$ 0.0017 & 18.9446 $\pm$ 0.0075 & 19.6661 $\pm$ 0.0771 \\
+lstm & 0.2479 $\pm$ 0.0015 & 0.3017 $\pm$ 0.0031 & \textbf{18.6156} $\pm$ 0.2819 & 19.3470 $\pm$ 0.1150 \\
+stgcn & 0.2644 $\pm$ 0.0061 & 0.3321 $\pm$ 0.0188 & 19.1872 $\pm$ 0.2060 & 20.6301 $\pm$ 0.4742 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Horizon Breakdown (t=1 to t=6)}
+\label{tab:horizon-breakdown-1-6}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccccc}
+\toprule
+Model & \multicolumn{2}{c}{t=1} & \multicolumn{2}{c}{t=2} & \multicolumn{2}{c}{t=3} & \multicolumn{2}{c}{t=4} & \multicolumn{2}{c}{t=5} & \multicolumn{2}{c}{t=6} \\
+\cmidrule(lr){2-13}
+ & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE \\
+\midrule
+gcn\_gru & 0.0864 & 0.1517 & 0.1124 & 0.1813 & 0.1466 & 0.2047 & 0.1556 & 0.2231 & 0.1726 & 0.2470 & 0.1903 & 0.2518 \\
+lstm & 0.0831 & 0.1408 & 0.1117 & 0.1831 & 0.1329 & 0.2145 & 0.1543 & 0.2419 & 0.1755 & 0.2643 & 0.1965 & 0.2828 \\
+stgcn & 0.1114 & 0.1753 & 0.1353 & 0.2078 & 0.1570 & 0.2212 & 0.1702 & 0.2604 & 0.1881 & 0.2714 & 0.2183 & 0.2775 \\
+zone\_full & 0.1646 & 0.1897 & 0.1882 & 0.2151 & 0.1792 & 0.2137 & 0.2005 & 0.2327 & 0.2115 & 0.2514 & 0.2306 & 0.2700 \\
+zone\_full\_sinc & 0.1345 & 0.1565 & 0.1341 & 0.1742 & 0.1463 & 0.1940 & 0.1729 & 0.2208 & 0.1946 & 0.2407 & 0.2231 & 0.2619 \\
+zone\_full\_tc & 0.1367 & 0.1619 & 0.1075 & 0.1664 & 0.1621 & 0.2088 & 0.1762 & 0.2262 & 0.1870 & 0.2361 & 0.2217 & 0.2718 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Horizon Breakdown (t=7 to t=12)}
+\label{tab:horizon-breakdown-7-12}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccccc}
+\toprule
+Model & \multicolumn{2}{c}{t=7} & \multicolumn{2}{c}{t=8} & \multicolumn{2}{c}{t=9} & \multicolumn{2}{c}{t=10} & \multicolumn{2}{c}{t=11} & \multicolumn{2}{c}{t=12} \\
+\cmidrule(lr){2-13}
+ & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE \\
+\midrule
+gcn\_gru & 0.2135 & 0.2741 & 0.2450 & 0.2948 & 0.2413 & 0.3026 & 0.2704 & 0.3153 & 0.2707 & 0.3124 & 0.2829 & 0.3303 \\
+lstm & 0.2207 & 0.2972 & 0.2426 & 0.3064 & 0.2599 & 0.3144 & 0.2727 & 0.3217 & 0.2814 & 0.3246 & 0.2882 & 0.3266 \\
+stgcn & 0.2384 & 0.2843 & 0.2618 & 0.3176 & 0.2540 & 0.3229 & 0.2669 & 0.3365 & 0.2863 & 0.3558 & 0.2959 & 0.3546 \\
+zone\_full & 0.2221 & 0.2552 & 0.2503 & 0.2932 & 0.2588 & 0.2992 & 0.2538 & 0.2911 & 0.2649 & 0.2951 & 0.2665 & 0.3110 \\
+zone\_full\_sinc & 0.2146 & 0.2595 & 0.2463 & 0.2905 & 0.2615 & 0.2924 & 0.2772 & 0.3475 & 0.2815 & 0.3155 & 0.2911 & 0.3281 \\
+zone\_full\_tc & 0.2360 & 0.2754 & 0.2334 & 0.2756 & 0.2555 & 0.2993 & 0.2904 & 0.3267 & 0.2761 & 0.3134 & 0.2798 & 0.3178 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Horizon Breakdown (t=13 to t=18)}
+\label{tab:horizon-breakdown-13-18}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccccc}
+\toprule
+Model & \multicolumn{2}{c}{t=13} & \multicolumn{2}{c}{t=14} & \multicolumn{2}{c}{t=15} & \multicolumn{2}{c}{t=16} & \multicolumn{2}{c}{t=17} & \multicolumn{2}{c}{t=18} \\
+\cmidrule(lr){2-13}
+ & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE \\
+\midrule
+gcn\_gru & 0.2914 & 0.3319 & 0.3093 & 0.3553 & 0.2977 & 0.3476 & 0.3166 & 0.3621 & 0.3219 & 0.3648 & 0.3141 & 0.3585 \\
+lstm & 0.2937 & 0.3302 & 0.2992 & 0.3334 & 0.3029 & 0.3347 & 0.3059 & 0.3370 & 0.3026 & 0.3335 & 0.3001 & 0.3311 \\
+stgcn & 0.3051 & 0.3668 & 0.3045 & 0.3684 & 0.3048 & 0.3611 & 0.3010 & 0.3511 & 0.3145 & 0.3774 & 0.3231 & 0.3821 \\
+zone\_full & 0.2866 & 0.3232 & 0.2826 & 0.3105 & 0.2773 & 0.3137 & 0.2747 & 0.3182 & 0.2875 & 0.3249 & 0.2795 & 0.3111 \\
+zone\_full\_sinc & 0.2864 & 0.3189 & 0.2892 & 0.3292 & 0.2954 & 0.3331 & 0.2915 & 0.3319 & 0.2828 & 0.3173 & 0.2973 & 0.3367 \\
+zone\_full\_tc & 0.2919 & 0.3261 & 0.2880 & 0.3193 & 0.2848 & 0.3140 & 0.2708 & 0.3056 & 0.2808 & 0.3137 & 0.2888 & 0.3245 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Horizon Breakdown (t=19 to t=24)}
+\label{tab:horizon-breakdown-19-24}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccccc}
+\toprule
+Model & \multicolumn{2}{c}{t=19} & \multicolumn{2}{c}{t=20} & \multicolumn{2}{c}{t=21} & \multicolumn{2}{c}{t=22} & \multicolumn{2}{c}{t=23} & \multicolumn{2}{c}{t=24} \\
+\cmidrule(lr){2-13}
+ & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE & MAE & RMSE \\
+\midrule
+gcn\_gru & 0.3041 & 0.3480 & 0.3115 & 0.3558 & 0.3042 & 0.3466 & 0.2891 & 0.3272 & 0.3023 & 0.3486 & 0.2988 & 0.3423 \\
+lstm & 0.2929 & 0.3252 & 0.2913 & 0.3225 & 0.2874 & 0.3189 & 0.2854 & 0.3179 & 0.2848 & 0.3175 & 0.2844 & 0.3174 \\
+stgcn & 0.3198 & 0.3778 & 0.3366 & 0.4047 & 0.3227 & 0.3827 & 0.3102 & 0.3621 & 0.3202 & 0.3747 & 0.2985 & 0.3341 \\
+zone\_full & 0.2835 & 0.3146 & 0.2844 & 0.3101 & 0.2826 & 0.3151 & 0.2704 & 0.3049 & 0.2919 & 0.3217 & 0.2767 & 0.3189 \\
+zone\_full\_sinc & 0.2925 & 0.3231 & 0.2801 & 0.3120 & 0.2928 & 0.3220 & 0.2620 & 0.3003 & 0.2659 & 0.3035 & 0.2616 & 0.2913 \\
+zone\_full\_tc & 0.2744 & 0.3062 & 0.2901 & 0.3263 & 0.2810 & 0.3144 & 0.2617 & 0.2962 & 0.2783 & 0.3071 & 0.2748 & 0.3070 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}

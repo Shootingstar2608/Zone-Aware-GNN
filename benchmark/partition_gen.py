@@ -18,6 +18,7 @@ TRANG THAI
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import os
@@ -29,6 +30,7 @@ SCHEMA_VERSION = "0.1.0"
 DATASET_PATH = "data/processed/graph_dataset.pt"
 META_PATH = "data/processed/meta.json"
 OUT_PATH = "data/partitions/partitions_meta.json"
+DATASET_ID = os.path.splitext(os.path.basename(DATASET_PATH))[0]   # "graph_dataset"
 
 # Hang so dong ho cua HCM-Sim (xem docs/00 §2 buoc 3)
 STEPS_PER_HOUR = 4          # 15 phut / snapshot
@@ -39,7 +41,18 @@ DAY0_WEEKDAY = 0            # snapshot 0 = 00:00 thu Hai (2026-05-18)
 # ══════════════════════════════════════════════════════════════
 # PLUMBING — da hien thuc, Nguoi 4 dung duoc ngay
 # ══════════════════════════════════════════════════════════════
-def dataset_fingerprint(path: str = DATASET_PATH) -> str:
+def set_dataset_paths(dataset_path: str, meta_path: str | None = None) -> None:
+    """Chọn dataset runtime, thay vì luôn dùng processed/graph_dataset.pt."""
+    global DATASET_PATH, META_PATH, DATASET_ID
+    DATASET_PATH = os.path.abspath(dataset_path)
+    META_PATH = os.path.abspath(
+        meta_path or os.path.join(os.path.dirname(DATASET_PATH), "meta.json")
+    )
+    DATASET_ID = os.path.basename(os.path.dirname(DATASET_PATH))
+
+
+def dataset_fingerprint(path: str | None = None) -> str:
+    path = path or DATASET_PATH
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
@@ -56,7 +69,8 @@ def git_commit() -> str:
         return "unknown"
 
 
-def load_meta(path: str = META_PATH) -> dict:
+def load_meta(path: str | None = None) -> dict:
+    path = path or META_PATH
     with open(path) as f:
         return json.load(f)
 
@@ -118,9 +132,9 @@ def mask_hash(mask: np.ndarray) -> str:
     return hashlib.sha256(np.ascontiguousarray(mask.astype(np.uint8)).tobytes()).hexdigest()
 
 
-def check_fingerprint(record: dict, path: str = DATASET_PATH) -> None:
+def check_fingerprint(record: dict, path: str | None = None) -> None:
     """Fail TO TIENG neu dataset da doi ke tu luc sinh partition."""
-    now = dataset_fingerprint(path)
+    now = dataset_fingerprint(path or DATASET_PATH)
     if record["dataset_fingerprint"] != now:
         raise RuntimeError(
             f"partition '{record['partition_id']}' sinh tu dataset khac.\n"
@@ -471,7 +485,7 @@ def temporal_shift(S: int, meta: dict, scenario: str = "weekday_to_weekend",
 # IO
 # ══════════════════════════════════════════════════════════════
 def build_record(partition_id, scenario, params, seed, meta,
-                 mask=None, splits=None, stats=None) -> dict:
+                 mask=None, splits=None, stats=None, dataset_id=None) -> dict:
     rec = {
         "schema_version": SCHEMA_VERSION,
         "partition_id": partition_id,
@@ -479,6 +493,7 @@ def build_record(partition_id, scenario, params, seed, meta,
         "params": params,
         "seed": seed,
         "dataset_fingerprint": dataset_fingerprint(),
+        "dataset_id": dataset_id or DATASET_ID,
         "meta_snapshot": {k: meta[k] for k in ("N", "S", "T_in", "T_out")},
         "overlap_gap": overlap_gap(meta),
         "git_commit": git_commit(),
@@ -612,3 +627,140 @@ def apply_input_mask(X, mask, meta: dict, strategy: str = "flag",
         "fill_value": float(fill_value),
     }
     return out, info
+
+# ══════════════════════════════════════════════════════════════
+# CLI — sinh partition va xuat JSON versioned
+# ══════════════════════════════════════════════════════════════
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def load_zone_matrix(meta: dict, path: str = "data/raw/zone_labels.csv") -> np.ndarray:
+    """Doc Z (N, K) tu zone_labels.csv. Khong can torch."""
+    import csv
+    with open(path, newline="", encoding="utf-8") as f:
+        rows = {r["node"]: r for r in csv.DictReader(f)}
+    nodes = meta.get("nodes") or sorted(rows)
+    return np.array(
+        [[float(rows[n][z]) for z in meta["zone_types"]] for n in nodes], dtype=float
+    )
+
+
+def _gen_quantity(meta, a):
+    recs = []
+    for alpha in a.alphas:
+        for seed in a.seeds:
+            mask, stats = quantity_skew(meta["S"], meta["N"], alpha=alpha, seed=seed,
+                                        block_len=a.block_len, mode=a.mode,
+                                        c_bar=a.c_bar)
+            params = {"alpha": alpha, "block_len": a.block_len,
+                      "mode": a.mode, "c_bar": a.c_bar}
+            recs.append(build_record(f"qskew_a{alpha}_s{seed}", "quantity_skew",
+                                     params, seed, meta, mask=mask, stats=stats,
+                                     dataset_id=a.dataset_id))
+    return recs
+
+
+def _gen_zone(meta, a):
+    Z = load_zone_matrix(meta)
+    recs = []
+    for seed in a.seeds:
+        mask, stats = zone_skew(Z, meta["S"], meta, n_clusters=a.n_clusters,
+                                seed=seed, c_bar=a.c_bar,
+                                off_band_weight=a.off_band_weight)
+        params = {"n_clusters": a.n_clusters, "off_band_weight": a.off_band_weight,
+                  "c_bar": a.c_bar}
+        recs.append(build_record(
+            f"zskew_k{a.n_clusters}_w{a.off_band_weight}_s{seed}", "zone_skew",
+            params, seed, meta, mask=mask, stats=stats, dataset_id=a.dataset_id))
+    return recs
+
+
+def _gen_temporal(meta, a):
+    splits, stats = temporal_shift(meta["S"], meta, scenario=a.ts_scenario)
+    return [build_record(f"tshift_{a.ts_scenario}", "temporal_shift",
+                         {"scenario": a.ts_scenario}, 0, meta,
+                         splits=splits, stats=stats, dataset_id=a.dataset_id)]
+
+
+def _gen_drift(meta, a):
+    splits, _ = temporal_shift(meta["S"], meta)
+    recs = []
+    for seed in a.seeds:
+        spec, stats = concept_drift(splits["test"], meta["N"], seed=seed,
+                                    n_targets=a.n_targets)
+        rec = build_record(f"drift_n{a.n_targets}_s{seed}", "concept_drift",
+                           {"n_targets": a.n_targets}, seed, meta,
+                           stats=stats, dataset_id=a.dataset_id)
+        rec["perturbation_spec"] = spec
+        recs.append(rec)
+    return recs
+
+
+GENERATORS = {
+    "quantity_skew": _gen_quantity,
+    "zone_skew": _gen_zone,
+    "temporal_shift": _gen_temporal,
+    "concept_drift": _gen_drift,
+}
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(
+        prog="python -m benchmark.partition_gen",
+        description="Sinh partition Non-IID va xuat JSON versioned.")
+    p.add_argument("--scenario", nargs="+", default=["all"],
+                   choices=["all", *GENERATORS])
+    p.add_argument("--seeds", type=int, nargs="+", default=[42, 43, 44, 45, 46])
+    p.add_argument("--alphas", type=float, nargs="+", default=[0.1, 0.5, 1.0, 5.0])
+    p.add_argument("--block-len", type=int, default=1)
+    p.add_argument("--mode", default="fixed_coverage",
+                   choices=["fixed_coverage", "relative", "budget"])
+    p.add_argument("--c-bar", type=float, default=0.5)
+    p.add_argument("--n-clusters", type=int, default=3)
+    p.add_argument("--off-band-weight", type=float, default=0.1)
+    p.add_argument("--ts-scenario", default="weekday_to_weekend")
+    p.add_argument("--n-targets", type=int, default=3)
+    p.add_argument("--data-dir", default=None,
+                   help="Thu muc chua graph_dataset.pt va meta.json.")
+    p.add_argument("--dataset-id", default=None)
+    p.add_argument("--out", default=None)
+    p.add_argument("--append", action="store_true",
+                   help="Gop voi file cu; trung partition_id thi ban moi thang.")
+    a = p.parse_args(argv)
+
+    os.chdir(REPO_ROOT)          # duong dan tuong doi data/... luon dung
+    if a.data_dir:
+        data_dir = os.path.abspath(a.data_dir)
+        set_dataset_paths(os.path.join(data_dir, "graph_dataset.pt"))
+        default_dataset_id = os.path.basename(os.path.normpath(data_dir))
+    else:
+        default_dataset_id = DATASET_ID
+    a.dataset_id = a.dataset_id or default_dataset_id
+    a.out = a.out or (
+        os.path.join("data", "partitions", a.dataset_id, "partitions_meta.json")
+        if a.data_dir else OUT_PATH
+    )
+    meta = load_meta()
+
+    scenarios = list(GENERATORS) if "all" in a.scenario else a.scenario
+    recs = []
+    for name in scenarios:
+        new = GENERATORS[name](meta, a)
+        print(f"  {name:<16} -> {len(new):3d} partition")
+        recs.extend(new)
+
+    if a.append and os.path.exists(a.out):
+        merged = {r["partition_id"]: r for r in load_partitions(a.out)}
+        merged.update({r["partition_id"]: r for r in recs})
+        recs = list(merged.values())
+
+    save_partitions(recs, a.out)
+    print(f"\n  Tong: {len(recs)} partition -> {a.out}")
+    print(f"  dataset_id         : {a.dataset_id}")
+    print(f"  dataset_fingerprint: {dataset_fingerprint()[:16]}...")
+    print(f"  git_commit         : {git_commit()[:10]}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

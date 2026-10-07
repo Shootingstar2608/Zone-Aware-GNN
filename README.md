@@ -2,6 +2,11 @@
 
 > Giải quyết bài toán dự báo lưu lượng giao thông đô thị với dữ liệu không đồng nhất (Non-IID) bằng cách tích hợp ngữ nghĩa vùng chức năng đất đai (TAZ Zone Labels) vào kiến trúc GNN thích ứng.
 
+> **Trạng thái benchmark hiện hành:** `HCM-Sim v1` là benchmark **synthetic**,
+> không phải quan sát giao thông thực từ TomTom. Dùng nó để kiểm chứng protocol
+> Non-IID có thể tái lập; không diễn giải kết quả như hiệu năng trên traffic thực.
+> Contract chính thức: [`docs/hcm_sim_v1_spec.md`](docs/hcm_sim_v1_spec.md).
+
 ---
 
 ## 📐 Kiến trúc Mô hình
@@ -68,19 +73,37 @@ Research/
 
 ```bash
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate  |  venv\Scripts\Activate.ps1
 pip install torch --extra-index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
 
-### 2. Cấu hình API Key (cần có TomTom API Key)
+### 2. Tạo và kiểm tra HCM-Sim v1 (không cần API key)
+
+```bash
+venv/bin/python scripts/dev/generate_synthetic_traffic.py \
+  --seed 42 --days 7 --out data/generated/hcm_sim_v1/hcm_sim_traffic.csv
+venv/bin/python scripts/build_graph.py \
+  --traffic-path data/generated/hcm_sim_v1/hcm_sim_traffic.csv \
+  --out-dir data/processed/hcm_sim_v1 --t-in 12 --t-out 24
+venv/bin/python scripts/quick_test.py --data-dir data/processed/hcm_sim_v1
+```
+
+Sinh và kiểm chứng metadata partition độc lập:
+
+```bash
+venv/bin/python -m benchmark.partition_gen --data-dir data/processed/hcm_sim_v1
+venv/bin/python scripts/verify_partitions.py --data-dir data/processed/hcm_sim_v1
+```
+
+### 3. Cấu hình API Key (chỉ cho pipeline TomTom lịch sử)
 
 ```bash
 cp .env.example .env
 # Điền TOMTOM_API_KEY=your_key vào file .env
 ```
 
-### 3. Kiểm tra pipeline
+### 4. Kiểm tra pipeline legacy
 
 ```bash
 venv/bin/python scripts/quick_test.py
@@ -88,7 +111,7 @@ venv/bin/python scripts/quick_test.py
 
 Kết quả mong đợi: `✅` cho tất cả 5 tests — OSRM, Adjacency, Speed Proxy, Zone Labels, Model Forward Pass.
 
-### 4. Xây dựng đồ thị (build graph dataset)
+### 5. Xây dựng đồ thị legacy (build graph dataset)
 
 ```bash
 # Tạo nhãn vùng từ OSM (cần internet)
@@ -99,18 +122,19 @@ venv/bin/python scripts/build_graph.py
 # Output: data/processed/graph_dataset.pt + meta.json
 ```
 
-### 5. Phân tích thống kê Non-IID (EDA)
+### 6. Phân tích thống kê Non-IID (EDA)
 
 ```bash
 venv/bin/python scripts/run_eda.py
 # Output: data/results/eda_jsd_heatmap.png + eda_jsd_correlation.png
 ```
 
-### 6. Huấn luyện & Ablation Study
+### 7. Huấn luyện & Ablation Study
 
 ```bash
 # Huấn luyện mô hình đề xuất
-venv/bin/python scripts/train.py --variant zone_full
+venv/bin/python scripts/train.py --data-dir data/processed/hcm_sim_v1 \
+  --out-dir data/results/hcm_sim_v1 --epochs 100 --variant zone_full
 
 # Chạy toàn bộ 4 variants ablation study
 venv/bin/python scripts/train.py --ablation
@@ -119,7 +143,7 @@ venv/bin/python scripts/train.py --ablation
 
 ---
 
-## 📊 Kết quả Thực nghiệm (HCM-Zone Dataset)
+## 📊 Kết quả lịch sử (không dùng làm claim paper)
 
 | Variant | Zone Embed | Zone Weight | Zone Adj | MAE | RMSE | MAPE |
 |---|:---:|:---:|:---:|---:|---:|---:|
@@ -128,11 +152,26 @@ venv/bin/python scripts/train.py --ablation
 | + Zone Weight | ✅ | ✅ | ❌ | 0.1057 | 0.1613 | 7.84% |
 | **Zone-Aware (Đề xuất)** | ✅ | ✅ | ✅ | **0.0795** | **0.1419** | **6.14%** |
 
-MAE giảm **62.2%** so với baseline. Multi-Zone MAE giảm **61.7%**.
+Các con số trên là kết quả lịch sử, chưa đủ điều kiện làm claim paper: phải
+chạy lại trên chrono split, nhiều seed, và báo cáo độ bất định/kiểm định.
 
 ---
 
-## 📁 Dataset: HCM-Zone
+## 📁 Dataset chính: HCM-Sim v1
+
+| Thành phần | Giá trị |
+|---|---|
+| Bản chất | Synthetic, sinh xác định từ seed 42 |
+| Node / zone | 17 node TP.HCM, 8 multi-label zones từ OSM/OSRM artifacts |
+| Chuỗi | 7 ngày, interval 15 phút, 672 snapshots |
+| Input / target | `T_in=12`, `T_out=24`, 4 feature động |
+| Cửa sổ | `S=637`, kèm `time_labels` 4 lớp |
+| Provenance | raw metadata + processed manifest + SHA-256 hash |
+
+Dataset OSRM/TomTom bên dưới là pipeline lịch sử, cần audit nguồn và license
+trước khi được dùng để công bố.
+
+## 📁 Dataset lịch sử: HCM-Zone
 
 | Nguồn | Vai trò | Kích thước |
 |---|---|---|
