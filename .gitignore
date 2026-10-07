@@ -42,3 +42,6 @@ paper/*.out
 paper/*.toc
 paper/*.synctex.gz
 paper/_minted*/
+
+# Báo cáo LaTeX cục bộ (không đưa Source_Report lên remote)
+Source_Report/
