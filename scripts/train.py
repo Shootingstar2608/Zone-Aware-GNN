@@ -531,6 +531,7 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
 
 
 def main():
+    global DATASET_PATH, META_PATH, OUT_DIR, NORMALIZER_DIR, EPOCHS
     parser = argparse.ArgumentParser()
     parser.add_argument("--ablation", action="store_true")
     parser.add_argument("--baselines", action="store_true")
@@ -546,7 +547,19 @@ def main():
         default=LAMBDA_COS,
         help="Hệ số cosine regularization (Bảo). Đặt 0 để tắt hoàn toàn.",
     )
+    parser.add_argument("--data-dir", default="data/processed",
+                        help="Thu muc chua graph_dataset.pt va meta.json.")
+    parser.add_argument("--out-dir", default="data/results",
+                        help="Thu muc luu checkpoint va ket qua.")
+    parser.add_argument("--epochs", type=int, default=EPOCHS)
     args = parser.parse_args()
+
+    data_dir = os.path.abspath(args.data_dir)
+    DATASET_PATH = os.path.join(data_dir, "graph_dataset.pt")
+    META_PATH = os.path.join(data_dir, "meta.json")
+    OUT_DIR = os.path.abspath(args.out_dir)
+    NORMALIZER_DIR = os.path.join(OUT_DIR, "normalizers")
+    EPOCHS = args.epochs
 
     print(f"📂 Loading dataset from {DATASET_PATH}...")
     if not os.path.exists(DATASET_PATH):
@@ -559,7 +572,7 @@ def main():
 
     print(f"  Nodes: {meta['N']} | Zones: {meta['K']} | Features: {meta['F']}")
     print(f"  Samples: {meta['S']} | T_in: {meta['T_in']} | T_out: {meta['T_out']}")
-    print(f"  TomTom: {'✅' if meta['has_tomtom'] else '⚠️ using OSRM proxy'}")
+    print(f"  Source: {meta.get('data_source', 'unknown')}")
     print(f"  Zones:  {'✅' if meta['has_zones']  else '⚠️ using zero vectors'}")
     print(f"  Device: {DEVICE}")
     print(f"  Cosine reg λ: {args.lambda_cos}")

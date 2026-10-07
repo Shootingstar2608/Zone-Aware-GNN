@@ -364,6 +364,7 @@ def load_done_keys(path: str) -> set:
 # MAIN
 # ══════════════════════════════════════════════════════════════
 def main():
+    global DATASET_PATH, META_PATH, OUT_DIR, RUNS_CSV
     p = argparse.ArgumentParser(
         description="Chạy đa seed để đo Mean±Std và phục vụ kiểm định thống kê."
     )
@@ -381,7 +382,9 @@ def main():
         choices=SPLIT_MODES,
     )
     p.add_argument("--epochs", type=int, default=EPOCHS)
-    p.add_argument("--out", default=RUNS_CSV)
+    p.add_argument("--data-dir", default=os.path.join(ROOT, "data", "processed"),
+                   help="Thu muc chua graph_dataset.pt va meta.json.")
+    p.add_argument("--out", default=None)
     p.add_argument(
         "--resume",
         action="store_true",
@@ -395,6 +398,13 @@ def main():
     p.add_argument("--save-checkpoints", action="store_true")
     p.add_argument("--verbose", action="store_true")
     args = p.parse_args()
+
+    data_dir = os.path.abspath(args.data_dir)
+    DATASET_PATH = os.path.join(data_dir, "graph_dataset.pt")
+    META_PATH = os.path.join(data_dir, "meta.json")
+    OUT_DIR = os.path.join(ROOT, "data", "results")
+    RUNS_CSV = os.path.join(OUT_DIR, "multiseed_runs.csv")
+    args.out = args.out or os.path.join(OUT_DIR, f"multiseed_runs_{os.path.basename(data_dir)}.csv")
 
     # --smoke override
     if args.smoke:

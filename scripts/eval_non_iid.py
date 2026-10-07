@@ -75,6 +75,7 @@ from benchmark.partition_gen import (
     save_partitions,
     build_record,
 )
+from benchmark import partition_gen as partition_gen_module
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 DATASET_PATH = "data/processed/graph_dataset.pt"
@@ -561,6 +562,7 @@ def _style(ax, bg, grid_color, label_color):
 # 4. MAIN
 # ══════════════════════════════════════════════════════════════
 def main():
+    global DATASET_PATH, META_PATH, PARTITION_PATH, OUT_DIR
     parser = argparse.ArgumentParser(description="Eval Non-IID benchmark")
     parser.add_argument(
         "--alphas",
@@ -577,16 +579,34 @@ def main():
     )
     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Số epochs train")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--data-dir", default="data/processed",
+                        help="Thu muc chua graph_dataset.pt va meta.json.")
+    parser.add_argument("--partition-path", default=None,
+                        help="Metadata partition; mac dinh theo data-dir.")
+    parser.add_argument("--out-dir", default="data/results",
+                        help="Thu muc luu CSV va figure.")
     parser.add_argument(
         "--skip_train",
         action="store_true",
         help="Bỏ qua train, chỉ vẽ biểu đồ từ CSV đã có",
     )
-    parser.add_argument("--out_csv", default=os.path.join(OUT_DIR, "non_iid_eval.csv"))
+    parser.add_argument("--out_csv", default=None)
     parser.add_argument(
-        "--out_plot", default=os.path.join(OUT_DIR, "non_iid_performance.png")
+        "--out_plot", default=None
     )
     args = parser.parse_args()
+
+    data_dir = os.path.abspath(args.data_dir)
+    dataset_id = os.path.basename(os.path.normpath(data_dir))
+    DATASET_PATH = os.path.join(data_dir, "graph_dataset.pt")
+    META_PATH = os.path.join(data_dir, "meta.json")
+    partition_gen_module.set_dataset_paths(DATASET_PATH, META_PATH)
+    PARTITION_PATH = os.path.abspath(args.partition_path or os.path.join(
+        "data", "partitions", dataset_id, "partitions_meta.json"
+    ))
+    OUT_DIR = os.path.abspath(args.out_dir)
+    args.out_csv = args.out_csv or os.path.join(OUT_DIR, f"non_iid_eval_{dataset_id}.csv")
+    args.out_plot = args.out_plot or os.path.join(OUT_DIR, f"non_iid_performance_{dataset_id}.png")
 
     os.makedirs(OUT_DIR, exist_ok=True)
     os.makedirs("data/partitions", exist_ok=True)

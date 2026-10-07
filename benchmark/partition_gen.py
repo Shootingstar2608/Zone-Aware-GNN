@@ -41,7 +41,18 @@ DAY0_WEEKDAY = 0            # snapshot 0 = 00:00 thu Hai (2026-05-18)
 # ══════════════════════════════════════════════════════════════
 # PLUMBING — da hien thuc, Nguoi 4 dung duoc ngay
 # ══════════════════════════════════════════════════════════════
-def dataset_fingerprint(path: str = DATASET_PATH) -> str:
+def set_dataset_paths(dataset_path: str, meta_path: str | None = None) -> None:
+    """Chọn dataset runtime, thay vì luôn dùng processed/graph_dataset.pt."""
+    global DATASET_PATH, META_PATH, DATASET_ID
+    DATASET_PATH = os.path.abspath(dataset_path)
+    META_PATH = os.path.abspath(
+        meta_path or os.path.join(os.path.dirname(DATASET_PATH), "meta.json")
+    )
+    DATASET_ID = os.path.basename(os.path.dirname(DATASET_PATH))
+
+
+def dataset_fingerprint(path: str | None = None) -> str:
+    path = path or DATASET_PATH
     h = hashlib.sha256()
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
@@ -58,7 +69,8 @@ def git_commit() -> str:
         return "unknown"
 
 
-def load_meta(path: str = META_PATH) -> dict:
+def load_meta(path: str | None = None) -> dict:
+    path = path or META_PATH
     with open(path) as f:
         return json.load(f)
 
@@ -120,9 +132,9 @@ def mask_hash(mask: np.ndarray) -> str:
     return hashlib.sha256(np.ascontiguousarray(mask.astype(np.uint8)).tobytes()).hexdigest()
 
 
-def check_fingerprint(record: dict, path: str = DATASET_PATH) -> None:
+def check_fingerprint(record: dict, path: str | None = None) -> None:
     """Fail TO TIENG neu dataset da doi ke tu luc sinh partition."""
-    now = dataset_fingerprint(path)
+    now = dataset_fingerprint(path or DATASET_PATH)
     if record["dataset_fingerprint"] != now:
         raise RuntimeError(
             f"partition '{record['partition_id']}' sinh tu dataset khac.\n"
@@ -708,13 +720,26 @@ def main(argv=None):
     p.add_argument("--off-band-weight", type=float, default=0.1)
     p.add_argument("--ts-scenario", default="weekday_to_weekend")
     p.add_argument("--n-targets", type=int, default=3)
-    p.add_argument("--dataset-id", default=DATASET_ID)
-    p.add_argument("--out", default=OUT_PATH)
+    p.add_argument("--data-dir", default=None,
+                   help="Thu muc chua graph_dataset.pt va meta.json.")
+    p.add_argument("--dataset-id", default=None)
+    p.add_argument("--out", default=None)
     p.add_argument("--append", action="store_true",
                    help="Gop voi file cu; trung partition_id thi ban moi thang.")
     a = p.parse_args(argv)
 
     os.chdir(REPO_ROOT)          # duong dan tuong doi data/... luon dung
+    if a.data_dir:
+        data_dir = os.path.abspath(a.data_dir)
+        set_dataset_paths(os.path.join(data_dir, "graph_dataset.pt"))
+        default_dataset_id = os.path.basename(os.path.normpath(data_dir))
+    else:
+        default_dataset_id = DATASET_ID
+    a.dataset_id = a.dataset_id or default_dataset_id
+    a.out = a.out or (
+        os.path.join("data", "partitions", a.dataset_id, "partitions_meta.json")
+        if a.data_dir else OUT_PATH
+    )
     meta = load_meta()
 
     scenarios = list(GENERATORS) if "all" in a.scenario else a.scenario

@@ -113,7 +113,7 @@
                 CHƯƠNG TRÌNH ĐÀO TẠO: & Đại học tiêu chuẩn \\[0.25cm]
                 GIẢNG VIÊN HƯỚNG DẪN 1: & PGS. TS. Trần Minh Quang \\[0.25cm]
                 GIẢNG VIÊN HƯỚNG DẪN 2: & ThS. Bùi Tiến Đức \\[0.25cm]
-                SINH VIÊN THỰC HIỆN: & Nguyễn Ngọc Tôn – 2313508 \\
+                SINH VIÊN THỰC HIỆN: & Đỗ Hồng Phúc – 2312672 \\
             \end{tabular}
         \end{minipage}
         
@@ -132,19 +132,15 @@
     % CÁC PHẦN NỘI DUNG BÁO CÁO
     % ==========================================
     
-    \section{Kết quả Đánh giá Non-IID Benchmark (HCM-Sim)}
-    Dưới đây là bảng kết quả tổng hợp chạy thống kê tự động từ module \texttt{generate\_report.py} (Phase 4.3). Toàn bộ thí nghiệm được đánh giá với phương pháp chia tập \textit{chronological split} (giữ nguyên purge gap) và normalization không rò rỉ.
-    
-    \input{results.tex}
-    
-    \section{Đánh giá độ ổn định Non-IID (Quantity Skew)}
-    Biểu đồ dưới đây (Hình \ref{fig:non_iid}) minh họa hiệu suất (MAE/MAPE) của các mô hình khi mức độ mất cân bằng dữ liệu tăng dần (được đo bằng hệ số Gini và tham số Alpha Dirichlet). Có thể thấy các mô hình đề xuất (Zone-Aware) giữ được độ suy giảm cực kỳ thấp (đường đi ngang) ngay cả khi môi trường Non-IID trở nên khắc nghiệt (Alpha nhỏ).
-    
-    \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.98\textwidth]{../data/results/non_iid_performance.png}
-        \caption{Hiệu suất mô hình theo mức độ Non-IID (Zone-Aware giữ ổn định tốt nhất)}
-        \label{fig:non_iid}
-    \end{figure}
+    % Chương 1 và 2 do thành viên phụ trách nền tảng dữ liệu/benchmark viết.
+    \input{chapters/01_introduction}
+    \input{chapters/02_theoretical_background}
+
+    % Chương 3--5 để các thành viên khác bổ sung:
+    % \input{chapters/03_methodology}
+    % \input{chapters/04_results_discussion}
+    % \input{chapters/05_conclusion_future_work}
+
+    \input{chapters/references}
 
 \end{document}

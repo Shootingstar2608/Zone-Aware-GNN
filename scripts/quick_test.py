@@ -10,11 +10,64 @@ Script này kiểm tra:
 Chạy: python scripts/quick_test.py
 """
 
+import argparse
 import os, sys, json
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+
+def validate_processed_dataset(data_dir: str) -> int:
+    """Kiểm tra contract của dataset đã build (ví dụ HCM-Sim v1)."""
+    import torch
+
+    data_dir = os.path.abspath(data_dir)
+    dataset_path = os.path.join(data_dir, "graph_dataset.pt")
+    meta_path = os.path.join(data_dir, "meta.json")
+    manifest_path = os.path.join(data_dir, "manifest.json")
+    print("=" * 55)
+    print("PROCESSED DATASET QUICK TEST")
+    print("=" * 55)
+    for path in (dataset_path, meta_path, manifest_path):
+        assert os.path.exists(path), f"❌ File not found: {path}"
+
+    dataset = torch.load(dataset_path, weights_only=False)
+    with open(meta_path, encoding="utf-8") as f:
+        meta = json.load(f)
+    with open(manifest_path, encoding="utf-8") as f:
+        manifest = json.load(f)
+    required = {"A", "Z", "X", "Y", "time_labels"}
+    missing = required - set(dataset)
+    assert not missing, f"❌ Missing tensor fields: {sorted(missing)}"
+    S, N, TF = dataset["X"].shape
+    assert dataset["Y"].shape == (S, N, meta["T_out"])
+    assert TF == meta["T_in"] * meta["F"]
+    assert dataset["A"].shape == (N, N)
+    assert dataset["Z"].shape[0] == N
+    labels = dataset["time_labels"].detach().cpu().numpy()
+    assert labels.shape == (S,)
+    assert set(labels.tolist()).issubset({0, 1, 2, 3})
+    assert manifest.get("data_source") == meta.get("data_source")
+
+    print(f"✅ Dataset: {data_dir}")
+    print(f"   Source: {meta.get('data_source', 'unknown')}")
+    print(f"   A={tuple(dataset['A'].shape)}, Z={tuple(dataset['Z'].shape)}")
+    print(f"   X={tuple(dataset['X'].shape)}, Y={tuple(dataset['Y'].shape)}")
+    print(f"   T_in={meta['T_in']}, T_out={meta['T_out']}, F={meta['F']}")
+    label_values, label_counts = np.unique(labels, return_counts=True)
+    label_summary = {int(k): int(v) for k, v in zip(label_values, label_counts)}
+    print(f"   time_labels: {label_summary}")
+    print("\n✅ Processed dataset contract, manifest, and time labels are valid.")
+    return 0
+
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--data-dir", default=None,
+                    help="Kiem tra graph_dataset.pt/meta.json trong thu muc nay.")
+args, _ = parser.parse_known_args()
+if args.data_dir:
+    raise SystemExit(validate_processed_dataset(args.data_dir))
 
 OSRM_PATH = "data/raw/hcm_osrm_dataset.csv"
 ZONE_PATH = "data/raw/zone_labels.csv"
