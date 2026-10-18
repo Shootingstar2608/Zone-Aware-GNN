@@ -1,0 +1,32 @@
+{
+  "dataset_id": "hcm_real_tomtom_segments_v1",
+  "city": "Ho Chi Minh City, Vietnam",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "intended_interval_min": 60,
+  "source": {
+    "name": "TomTom Traffic Flow API Segment Data",
+    "data_source": "observed",
+    "collection_mode": "point_to_nearest_road_segment",
+    "license_note": "Do not publish raw API responses or API keys. Check the current TomTom terms before redistributing derived data."
+  },
+  "selection_policy": "One anchor per existing HCM-Sim node. Each anchor must be validated once against the returned TomTom segment geometry before it is marked approved. The approved road name is recorded by manual map review; OpenLR is retained when TomTom returns it.",
+  "segments": [
+    {"node_id": "ben_thanh_market", "node_name": "Ben Thanh Market", "lat": 10.7725, "lon": 106.6980, "expected_corridor": "Ben Thanh central-road anchor", "status": "pending_api_validation"},
+    {"node_id": "district_1", "node_name": "District 1", "lat": 10.7756, "lon": 106.7009, "expected_corridor": "District 1 central-road anchor", "status": "pending_api_validation"},
+    {"node_id": "district_3", "node_name": "District 3", "lat": 10.7842, "lon": 106.6800, "expected_corridor": "District 3 arterial anchor", "status": "pending_api_validation"},
+    {"node_id": "district_5", "node_name": "District 5", "lat": 10.7550, "lon": 106.6664, "expected_corridor": "District 5 arterial anchor", "status": "pending_api_validation"},
+    {"node_id": "binh_thanh", "node_name": "Binh Thanh", "lat": 10.8106, "lon": 106.7091, "expected_corridor": "Binh Thanh arterial anchor", "status": "pending_api_validation"},
+    {"node_id": "tan_son_nhat_airport", "node_name": "Tan Son Nhat Airport", "lat": 10.8188, "lon": 106.6519, "expected_corridor": "Airport access-road anchor", "status": "pending_api_validation"},
+    {"node_id": "landmark_81", "node_name": "Landmark 81", "lat": 10.7949, "lon": 106.7218, "expected_corridor": "Nguyen Huu Canh-area anchor", "status": "pending_api_validation"},
+    {"node_id": "thu_duc", "node_name": "Thu Duc", "lat": 10.8496, "lon": 106.7530, "expected_corridor": "Thu Duc central-road anchor", "status": "pending_api_validation"},
+    {"node_id": "linh_trung", "node_name": "Linh Trung", "lat": 10.8715, "lon": 106.7830, "expected_corridor": "Linh Trung-area anchor", "status": "pending_api_validation"},
+    {"node_id": "suoi_tien", "node_name": "Suoi Tien", "lat": 10.8641, "lon": 106.8018, "expected_corridor": "Hanoi Highway-area anchor", "status": "pending_api_validation"},
+    {"node_id": "high_tech_park", "node_name": "High Tech Park", "lat": 10.8428, "lon": 106.8099, "expected_corridor": "High Tech Park access-road anchor", "status": "pending_api_validation"},
+    {"node_id": "vnu_hcm", "node_name": "VNU HCM", "lat": 10.8801, "lon": 106.8054, "expected_corridor": "VNU HCM access-road anchor", "status": "pending_api_validation"},
+    {"node_id": "hang_xanh", "node_name": "Hang Xanh", "lat": 10.8038, "lon": 106.7108, "expected_corridor": "Hang Xanh interchange anchor", "status": "pending_api_validation"},
+    {"node_id": "saigon_bridge", "node_name": "Saigon Bridge", "lat": 10.7992, "lon": 106.7230, "expected_corridor": "Saigon Bridge approach anchor", "status": "pending_api_validation"},
+    {"node_id": "eastern_bus_station", "node_name": "Eastern Bus Station", "lat": 10.8266, "lon": 106.7148, "expected_corridor": "Eastern Bus Station access-road anchor", "status": "pending_api_validation"},
+    {"node_id": "thu_thiem_tunnel", "node_name": "Thu Thiem Tunnel", "lat": 10.7697, "lon": 106.7085, "expected_corridor": "Thu Thiem Tunnel approach anchor", "status": "pending_api_validation"},
+    {"node_id": "pham_van_dong", "node_name": "Pham Van Dong", "lat": 10.8278, "lon": 106.7212, "expected_corridor": "Pham Van Dong corridor anchor", "status": "pending_api_validation"}
+  ]
+}

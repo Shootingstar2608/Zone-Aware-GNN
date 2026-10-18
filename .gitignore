@@ -21,6 +21,9 @@ env/
 # Data (large files — track with Git LFS or exclude)
 # data/raw/tomtom_traffic.csv
 # data/raw/hcm_osrm_dataset.csv
+# Observed API responses may be large and their redistribution can be restricted
+# by the source terms. Keep the collector/configuration in Git, not raw responses.
+data/raw/tomtom_hcm_segments/
 # Data: raw inputs duoc track de clone sach chay duoc ngay (2.9MB + 1.8MB).
 # Chi checkpoint model la khong track.
 
