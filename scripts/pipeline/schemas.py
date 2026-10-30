@@ -262,16 +262,82 @@ def validate_canonical_dataframe(df: pd.DataFrame) -> dict[str, Any]:
                 f"Có {int(bad_missing_reason.sum())} bản ghi có is_missing=True nhưng missing_reason='NONE'."
             )
 
-    # 7. Ràng buộc logic chéo (Cross-field Validation): Đóng đường thì tốc độ phải = 0 hoặc null
-    if "road_closure" in df.columns and "current_speed_kmh" in df.columns:
+    # 7. Ràng buộc logic chéo (Cross-field Validation):
+    # 7a. Ràng buộc chuẩn hóa đóng đường (Road Closure Invariant):
+    # Khi road_closure == True thì is_missing bắt buộc = True, missing_reason='ROAD_CLOSURE',
+    # quality_flag='ROAD_CLOSURE', current_speed_kmh=0.0, current_travel_time_s=0.0, congestion_ratio=null
+    if "road_closure" in df.columns:
         closure_mask = df["road_closure"] == True
         if closure_mask.any():
-            closure_speeds = pd.to_numeric(df.loc[closure_mask, "current_speed_kmh"], errors="coerce").dropna()
-            bad_closure_speed = closure_speeds > 0.0
-            if bad_closure_speed.any():
-                errors.append(
-                    f"Có {int(bad_closure_speed.sum())} bản ghi bị road_closure=True nhưng current_speed_kmh > 0."
-                )
+            if "is_missing" in df.columns:
+                bad_is_missing = ~df.loc[closure_mask, "is_missing"]
+                if bad_is_missing.any():
+                    errors.append(
+                        f"Có {int(bad_is_missing.sum())} bản ghi có road_closure=True nhưng is_missing=False (Quy ước: road_closure=True bắt buộc is_missing=True)."
+                    )
+            if "missing_reason" in df.columns:
+                bad_closure_reason = df.loc[closure_mask, "missing_reason"] != MissingReason.ROAD_CLOSURE.value
+                if bad_closure_reason.any():
+                    errors.append(
+                        f"Có {int(bad_closure_reason.sum())} bản ghi có road_closure=True nhưng missing_reason khác 'ROAD_CLOSURE'."
+                    )
+            if "current_speed_kmh" in df.columns:
+                closure_speeds = pd.to_numeric(df.loc[closure_mask, "current_speed_kmh"], errors="coerce").dropna()
+                bad_closure_speed = closure_speeds > 0.0
+                if bad_closure_speed.any():
+                    errors.append(
+                        f"Có {int(bad_closure_speed.sum())} bản ghi bị road_closure=True nhưng current_speed_kmh > 0."
+                    )
+            if "current_travel_time_s" in df.columns:
+                bad_closure_tt = df.loc[closure_mask, "current_travel_time_s"].notna()
+                if bad_closure_tt.any():
+                    errors.append(
+                        f"Có {int(bad_closure_tt.sum())} bản ghi bị road_closure=True nhưng current_travel_time_s không phải null/NaN (Quy ước: road_closure=True bắt buộc current_travel_time_s=NaN)."
+                    )
+            if "congestion_ratio" in df.columns:
+                bad_closure_cr = df.loc[closure_mask, "congestion_ratio"].notna()
+                if bad_closure_cr.any():
+                    errors.append(
+                        f"Có {int(bad_closure_cr.sum())} bản ghi bị road_closure=True nhưng congestion_ratio không phải null/NaN."
+                    )
+
+    # 7b. Ràng buộc thép cho dòng hợp lệ (Non-missing Finite Numbers Invariant):
+    # Khi is_missing == False thì:
+    # 1. road_closure BẮT BUỘC = False
+    # 2. Toàn bộ các trường số học giao thông BẮT BUỘC PHẢI LÀ SỐ HỮU HẠN (finite, không null, không NaN, không Inf)
+    if "is_missing" in df.columns:
+        valid_mask = df["is_missing"] == False
+        if valid_mask.any():
+            if "road_closure" in df.columns:
+                bad_closure_in_valid = df.loc[valid_mask, "road_closure"] == True
+                if bad_closure_in_valid.any():
+                    errors.append(
+                        f"Có {int(bad_closure_in_valid.sum())} bản ghi có is_missing=False nhưng road_closure=True."
+                    )
+
+            traffic_finite_cols = [
+                "current_speed_kmh",
+                "free_flow_speed_kmh",
+                "current_travel_time_s",
+                "free_flow_travel_time_s",
+                "congestion_ratio",
+                "traffic_delay_s",
+                "segment_length_m",
+                "confidence",
+            ]
+            for col in traffic_finite_cols:
+                if col in df.columns:
+                    series = df.loc[valid_mask, col]
+                    # Cho phép ngoại lệ: Nếu là ANOMALY_FREE_FLOW_ZERO thì congestion_ratio = null
+                    if col == "congestion_ratio" and "quality_flag" in df.columns:
+                        non_anomaly_mask = valid_mask & (df["quality_flag"] != QualityFlag.ANOMALY_FREE_FLOW_ZERO.value)
+                        series = df.loc[non_anomaly_mask, col]
+
+                    is_invalid = series.isna() | ~np.isfinite(pd.to_numeric(series, errors="coerce"))
+                    if is_invalid.any():
+                        errors.append(
+                            f"Cột số học '{col}' có {int(is_invalid.sum())} giá trị null/NaN/Inf ở các dòng is_missing=False. (Yêu cầu: is_missing=False bắt buộc 100% số hữu hạn)."
+                        )
 
     return {
         "is_valid": len(errors) == 0,

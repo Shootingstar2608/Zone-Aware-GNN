@@ -96,11 +96,11 @@
     },
     "road_closure": {
       "type": "boolean",
-      "description": "Cờ chỉ báo đoạn đường bị đóng/chặn lưu thông."
+      "description": "Cờ chỉ báo đoạn đường bị đóng/chặn lưu thông. Khi road_closure=True: is_missing=True, current_speed_kmh=0.0, current_travel_time_s=NaN, congestion_ratio=NaN, missing_reason='ROAD_CLOSURE'."
     },
     "is_missing": {
       "type": "boolean",
-      "description": "Cờ đánh dấu khung giờ bị thiếu dữ liệu quan sát."
+      "description": "Cờ đánh dấu khung giờ bị thiếu dữ liệu quan sát. Khi is_missing=False: road_closure=False và toàn bộ 8 trường số học giao thông bắt buộc là số hữu hạn (không null, NaN, Inf)."
     },
     "missing_reason": {
       "type": "string",

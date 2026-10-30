@@ -443,7 +443,44 @@ def test_road_closure_handling():
         assert row_a["road_closure"] == True
         assert row_a["quality_flag"] == QualityFlag.ROAD_CLOSURE.value
         assert row_a["missing_reason"] == MissingReason.ROAD_CLOSURE.value
-        assert row_a["is_missing"] == False
+        assert row_a["is_missing"] == True
+        assert row_a["current_speed_kmh"] == 0.0
+        assert pd.isna(row_a["current_travel_time_s"])
+        assert pd.isna(row_a["congestion_ratio"])
+
+        # Đảm bảo validator chấp thuận
+        val = validate_canonical_dataframe(canonical)
+        assert val["is_valid"], f"Validator fail on road closure: {val['errors']}"
+
+
+def test_non_missing_finite_numbers_invariant():
+    """Kiểm tra ràng buộc thép: Khi is_missing=False thì:
+    1. road_closure bắt buộc = False
+    2. Toàn bộ trường số học giao thông BẮT BUỘC PHẢI LÀ SỐ HỮU HẠN (finite), KHÔNG null/NaN/Inf.
+    """
+    row = _make_dummy_canonical_row()
+    row["is_missing"] = False
+    row["road_closure"] = False
+    # Đảm bảo các số hữu hạn
+    row["current_speed_kmh"] = 35.5
+    row["current_travel_time_s"] = 85.0
+    row["congestion_ratio"] = 1.05
+    df = pd.DataFrame([row])
+
+    val = validate_canonical_dataframe(df)
+    assert val["is_valid"], f"Unexpected error: {val['errors']}"
+
+    # Ca vi phạm 1: is_missing=False nhưng có NaN ở current_travel_time_s -> PHẢI BỊ CHẶN
+    df_bad_tt = pd.DataFrame([dict(row, current_travel_time_s=np.nan)])
+    val_bad_tt = validate_canonical_dataframe(df_bad_tt)
+    assert not val_bad_tt["is_valid"]
+    assert any("current_travel_time_s" in err for err in val_bad_tt["errors"])
+
+    # Ca vi phạm 2: is_missing=False nhưng có road_closure=True -> PHẢI BỊ CHẶN
+    df_bad_closure = pd.DataFrame([dict(row, road_closure=True)])
+    val_bad_closure = validate_canonical_dataframe(df_bad_closure)
+    assert not val_bad_closure["is_valid"]
+    assert any("road_closure=True" in err for err in val_bad_closure["errors"])
 
 
 def test_low_confidence_flagging():
@@ -982,6 +1019,7 @@ ALL_TESTS = [
     test_flatline_stagnation_detection,
     test_manifest_environment_fingerprint,
     test_distance_matrix_metric_space_and_disconnected_inf,
+    test_non_missing_finite_numbers_invariant,
 ]
 
 

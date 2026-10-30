@@ -162,10 +162,11 @@ def resample_to_hourly_canonical(
 
                 # Phân loại missing_reason & quality_flag
                 if closure:
-                    is_missing = False
+                    is_missing = True
                     missing_reason = MissingReason.ROAD_CLOSURE.value
                     quality_flag = QualityFlag.ROAD_CLOSURE.value
                     speed_curr = 0.0  # Chuẩn hóa đóng đường -> vận tốc bằng 0
+                    tt_curr = np.nan  # Chuẩn hóa đóng đường -> travel time = NaN (không xác định khi cấm đường)
                     delay_s = np.nan
                     congestion_ratio = np.nan
                 elif conf < 0.5:
@@ -173,6 +174,7 @@ def resample_to_hourly_canonical(
                     missing_reason = MissingReason.LOW_CONFIDENCE.value
                     quality_flag = QualityFlag.VALID_LOW_CONFIDENCE.value
                 else:
+                    is_missing = False
                     missing_reason = MissingReason.NONE.value
                     quality_flag = QualityFlag.VALID.value
 
@@ -212,7 +214,7 @@ def resample_to_hourly_canonical(
                     "time_label": time_lbl,
                     "confidence": conf,
                     "road_closure": closure,
-                    "is_missing": False,
+                    "is_missing": is_missing,
                     "missing_reason": missing_reason,
                     "quality_flag": quality_flag,
                     "dataset_version": dataset_version,
