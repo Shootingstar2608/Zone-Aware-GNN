@@ -45,3 +45,10 @@ paper/_minted*/
 
 # Báo cáo LaTeX cục bộ (không đưa Source_Report lên remote)
 Source_Report/
+
+data/raw/mock_*
+data/raw/tomtom_flow_raw/
+
+# Generated mock/local run artifacts for HCM-Real (do not commit temporary test data)
+data/processed/hcm_real_v1/
+data/results/hcm_real_v1/
