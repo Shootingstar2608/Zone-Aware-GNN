@@ -43,6 +43,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from scripts.train import (
     ABLATION_VARIANTS,
     BASELINE_NAMES,
+    NAIVE_BASELINE_NAMES,
     BATCH_SIZE,
     DEVICE,
     EPOCHS,
@@ -63,6 +64,7 @@ from utils.eval_protocol import (
     compute_zone_stratified_metrics,
     get_git_commit_hash,
 )
+from utils.history import apply_history_input_mask, fit_masked_normalizers, unflatten_history
 from benchmark.partition_gen import (
     assert_no_leakage,
     check_fingerprint,
@@ -241,7 +243,7 @@ def train_on_partition(
 
     A = dataset["A"].to(DEVICE)
     Z = dataset["Z"].to(DEVICE)
-    X = dataset["X"]  # (S, N, F*T_in)
+    X = unflatten_history(dataset["X"], meta)  # (S, N, T_in, F)
     Y = dataset["Y"]  # (S, N, T_out)
     TL = dataset["time_labels"]
 
@@ -257,11 +259,6 @@ def train_on_partition(
             "reason": f"train_size={len(train_idx)} < batch_size={BATCH_SIZE}",
         }
 
-    # ── Fit normalizer CHỈ trên train (cùng protocol với train.py) ──────
-    x_normalizer, y_normalizer, X_norm, Y_norm = fit_normalizers(
-        X, Y, train_idx
-    )
-
     # Phục hồi mask (S, N) để thực hiện loss masking
     S = meta["S"]
     N = meta["N"]
@@ -272,9 +269,18 @@ def train_on_partition(
     else:
         M = torch.ones((S, N), dtype=torch.float32)
 
-    train_ds = TensorDataset(X_norm[train_idx], Y_norm[train_idx], TL[train_idx], M[train_idx])
-    val_ds = TensorDataset(X_norm[val_idx], Y_norm[val_idx], TL[val_idx])
-    test_ds = TensorDataset(X_norm[test_idx], Y_norm[test_idx], TL[test_idx])
+    # Fit scaler only from visible training node-windows, then hide actual
+    # inputs. This is input masking v2, not the former loss-only setting.
+    x_normalizer, y_normalizer, X_norm, Y_norm = fit_masked_normalizers(
+        X, Y, train_idx, M
+    )
+    X_masked, mask_info = apply_history_input_mask(X_norm, M, strategy="flag")
+    model_meta = dict(meta)
+    model_meta["F"] = X_masked.shape[-1]
+
+    train_ds = TensorDataset(X_masked[train_idx], Y_norm[train_idx], TL[train_idx], M[train_idx])
+    val_ds = TensorDataset(X_masked[val_idx], Y_norm[val_idx], TL[val_idx])
+    test_ds = TensorDataset(X_masked[test_idx], Y_norm[test_idx], TL[test_idx])
 
     train_loader = DataLoader(train_ds, BATCH_SIZE, shuffle=True, drop_last=True)
     val_loader = DataLoader(val_ds, BATCH_SIZE, shuffle=False)
@@ -282,7 +288,29 @@ def train_on_partition(
 
     ablation_cfg = ABLATION_VARIANTS.get(variant, (False, False, False))
     use_zone_emb, use_zone_weight, use_zone_adj = ablation_cfg
-    model = build_model(variant, meta, use_zone_emb, use_zone_weight, use_zone_adj)
+    if variant in NAIVE_BASELINE_NAMES:
+        # Naive methods make predictions from exactly the same masked history.
+        # For the flag strategy, congestion remains channel 0.
+        from utils.history import naive_forecast
+        pred_real = naive_forecast(variant, X_masked, Y, train_idx, test_idx, model_meta)
+        true_real = Y[test_idx]
+        test_metrics = compute_metrics(pred_real, true_real)
+        zone_metrics = compute_zone_stratified_metrics(pred_real, true_real, Z.cpu(), meta["zone_types"])
+        return {
+            "variant": variant, "partition_id": partition["partition_id"],
+            "alpha": partition["params"].get("alpha", float("nan")),
+            "gini": partition.get("stats", {}).get("gini", float("nan")),
+            "n_zero_nodes": partition.get("stats", {}).get("n_zero_nodes", 0),
+            "zero_node_MAE": float("nan"), "train_size": len(train_idx), "test_size": len(test_idx),
+            "seed": seed, "elapsed_s": 0.0, "commit": get_git_commit_hash(),
+            "input_mask_strategy": mask_info["strategy"],
+            "input_masked_fraction": mask_info["masked_fraction"],
+            "model_feature_dim": model_meta["F"], "n_params": 0,
+            "dataset_fingerprint": partition.get("dataset_fingerprint"),
+            "mask_hash": partition.get("mask_hash"), **test_metrics, **zone_metrics,
+        }
+
+    model = build_model(variant, model_meta, use_zone_emb, use_zone_weight, use_zone_adj)
     model = model.to(DEVICE)
 
     lambda_cos = LAMBDA_COS if variant in ZONE_AWARE_VARIANTS else 0.0
@@ -350,6 +378,11 @@ def train_on_partition(
         "test_size": len(test_idx),
         "seed": seed,
         "elapsed_s": round(elapsed, 1),
+        "input_mask_strategy": mask_info["strategy"],
+        "input_masked_fraction": mask_info["masked_fraction"],
+        "model_feature_dim": model_meta["F"],
+        "dataset_fingerprint": partition.get("dataset_fingerprint"),
+        "mask_hash": partition.get("mask_hash"),
         "commit": get_git_commit_hash(),
         **test_metrics,
         **zone_metrics,

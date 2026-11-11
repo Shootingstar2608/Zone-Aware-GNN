@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hcm_real_tomtom_v1.schema.json",
+  "title": "HCM-Real TomTom canonical observation v1",
+  "description": "One observed or explicitly missing hourly/15-minute road-segment observation. Raw TomTom responses are not part of this public schema artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_id", "dataset_version", "schema_version", "timestamp_utc", "timestamp_local",
+    "node_id", "segment_id", "approved_openlr", "source_name", "source_type",
+    "current_speed_kmh", "free_flow_speed_kmh", "current_travel_time_s", "free_flow_travel_time_s",
+    "congestion_ratio", "confidence", "road_closure", "observation_status", "is_missing", "missing_reason",
+    "quality_flag", "registry_config_sha256", "raw_response_file"
+  ],
+  "properties": {
+    "dataset_id": {"const": "hcm_real_tomtom_segments_v1"},
+    "dataset_version": {"type": "string", "minLength": 1},
+    "schema_version": {"const": "1.1.0"},
+    "timestamp_utc": {"type": "string", "format": "date-time"},
+    "timestamp_local": {"type": "string", "format": "date-time"},
+    "node_id": {"type": "string", "minLength": 1},
+    "segment_id": {"type": "string", "minLength": 1},
+    "approved_openlr": {"type": "string", "minLength": 1},
+    "source_name": {"const": "tomtom"},
+    "source_type": {"const": "observed_traffic_flow_segment_api"},
+    "current_speed_kmh": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "free_flow_speed_kmh": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "current_travel_time_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "free_flow_travel_time_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "congestion_ratio": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "road_closure": {"type": ["boolean", "null"]},
+    "observation_status": {"enum": ["observed", "road_closed", "missing", "invalid_payload"]},
+    "is_missing": {"type": "boolean"},
+    "missing_reason": {"enum": ["", "api_timeout", "api_http_error", "network_error", "invalid_payload", "low_confidence", "road_closure", "not_collected"]},
+    "quality_flag": {"type": "string"},
+    "registry_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "raw_response_file": {"type": "string"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"observation_status": {"enum": ["missing", "invalid_payload"]}}},
+      "then": {
+        "properties": {
+          "is_missing": {"const": true},
+          "current_speed_kmh": {"type": "null"},
+          "free_flow_speed_kmh": {"type": "null"},
+          "current_travel_time_s": {"type": "null"},
+          "free_flow_travel_time_s": {"type": "null"},
+          "congestion_ratio": {"type": "null"},
+          "confidence": {"type": "null"},
+          "road_closure": {"type": "null"},
+          "missing_reason": {"enum": ["api_timeout", "api_http_error", "network_error", "invalid_payload", "low_confidence", "road_closure", "not_collected"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"observation_status": {"const": "invalid_payload"}}},
+      "then": {"properties": {"missing_reason": {"const": "invalid_payload"}}}
+    },
+    {
+      "if": {"properties": {"observation_status": {"const": "observed"}}},
+      "then": {
+        "properties": {
+          "is_missing": {"const": false},
+          "current_speed_kmh": {"type": "number", "exclusiveMinimum": 0},
+          "free_flow_speed_kmh": {"type": "number", "exclusiveMinimum": 0},
+          "current_travel_time_s": {"type": "number", "exclusiveMinimum": 0},
+          "free_flow_travel_time_s": {"type": "number", "exclusiveMinimum": 0},
+          "congestion_ratio": {"type": "number", "exclusiveMinimum": 0},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "road_closure": {"const": false},
+          "missing_reason": {"const": ""}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"observation_status": {"const": "road_closed"}}},
+      "then": {
+        "properties": {
+          "is_missing": {"const": false},
+          "current_speed_kmh": {"type": "null"},
+          "free_flow_speed_kmh": {"type": "null"},
+          "current_travel_time_s": {"type": "null"},
+          "free_flow_travel_time_s": {"type": "null"},
+          "congestion_ratio": {"type": "null"},
+          "confidence": {"type": "null"},
+          "road_closure": {"const": true},
+          "missing_reason": {"const": ""}
+        }
+      }
+    }
+  ]
+}

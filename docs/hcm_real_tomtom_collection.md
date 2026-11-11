@@ -59,3 +59,16 @@ data/raw/tomtom_hcm_segments/collection_errors.jsonl
 CSV chuẩn hóa có `current_speed_kmh`, `free_flow_speed_kmh`, travel time,
 confidence, road closure và `congestion_ratio = current/free-flow travel time`.
 Không công bố raw response hay dữ liệu đã thu trước khi rà điều khoản TomTom.
+
+## Chuyển raw data sang canonical dataset
+
+Raw CSV không nên được dùng trực tiếp cho benchmark vì một API timeout làm mất
+hẳn dòng của node. Sau khi có dữ liệu mới, chạy:
+
+```bash
+python scripts/build_hcm_real_canonical.py --dataset-version v1-pilot
+```
+
+Builder tạo lưới thời gian x 17 node, thêm row missing cho timeout/gap, kiểm
+tra duplicate/range/ratio, gắn quality flag và sinh manifest/quality summary.
+Chi tiết contract: `docs/hcm_real_canonical_schema.md`.

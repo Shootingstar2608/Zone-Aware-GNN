@@ -1,0 +1,61 @@
+{
+  "description": "Round-2 spatial probes around Thủ Đức. These points deliberately test TomTom traffic coverage before a final road name is adopted.",
+  "candidates": [
+    {
+      "candidate_id": "thu_duc_coverage_probe_a",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8420,
+      "lon": 106.7350,
+      "target_road_name": "Thủ Đức coverage probe A",
+      "selection_note": "South-west Thủ Đức; candidate area near the Phạm Văn Đồng approach."
+    },
+    {
+      "candidate_id": "thu_duc_coverage_probe_b",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8500,
+      "lon": 106.7420,
+      "target_road_name": "Thủ Đức coverage probe B",
+      "selection_note": "West-central Thủ Đức coverage search."
+    },
+    {
+      "candidate_id": "thu_duc_coverage_probe_c",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8580,
+      "lon": 106.7480,
+      "target_road_name": "Thủ Đức coverage probe C",
+      "selection_note": "North-west Thủ Đức coverage search."
+    },
+    {
+      "candidate_id": "thu_duc_coverage_probe_d",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8560,
+      "lon": 106.7580,
+      "target_road_name": "Thủ Đức coverage probe D",
+      "selection_note": "North-central Thủ Đức coverage search."
+    },
+    {
+      "candidate_id": "thu_duc_coverage_probe_e",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8440,
+      "lon": 106.7580,
+      "target_road_name": "Thủ Đức coverage probe E",
+      "selection_note": "South-central Thủ Đức coverage search."
+    },
+    {
+      "candidate_id": "thu_duc_coverage_probe_f",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8500,
+      "lon": 106.7700,
+      "target_road_name": "Thủ Đức coverage probe F",
+      "selection_note": "East-central Thủ Đức coverage search."
+    },
+    {
+      "candidate_id": "thu_duc_coverage_probe_g",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8600,
+      "lon": 106.7700,
+      "target_road_name": "Thủ Đức coverage probe G",
+      "selection_note": "North-east Thủ Đức coverage search."
+    }
+  ]
+}

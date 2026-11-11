@@ -45,6 +45,9 @@ from models.time_zone_aware_gnn import (
     TimeZoneAwareAHGNN,
     SinusoidalZoneAwareAHGNN,
 )  # Bảo
+from models.temporal_wrappers import TemporalGraphWrapper
+from utils.history import naive_forecast, unflatten_history
+from utils.benchmark_protocol import load_frozen_splits
 
 # ──────────────────────────────────────────────
 # CONFIG
@@ -90,6 +93,7 @@ ABLATION_VARIANTS = {
 }
 
 BASELINE_NAMES = ["lstm", "gcn_gru", "stgcn"]
+NAIVE_BASELINE_NAMES = ["persistence", "mean_by_node", "seasonal_naive"]
 
 # Các variant có zone embedding thực sự → mới áp dụng cosine_reg
 ZONE_AWARE_VARIANTS = {
@@ -267,7 +271,10 @@ def build_model(
     F = meta["F"]
     T_in = meta["T_in"]
     T_out = meta["T_out"]
-    in_ch = T_in * F
+    # `F` is the per-timestep feature count. Temporal models receive the
+    # explicit (B,N,T_in,F) tensor; only STGCN retains its legacy constructor
+    # check for T_in*F.
+    in_ch = F
 
     # ── External baselines ──
     if variant_name == "lstm":
@@ -275,26 +282,27 @@ def build_model(
     if variant_name == "gcn_gru":
         return GCNGRUBaseline(N, in_ch, T_out, hidden_dim=64)
     if variant_name == "stgcn":
-        return STGCNBaseline(N, in_ch, T_out, hidden_dim=64)
+        return STGCNBaseline(N, T_in * F, T_out, hidden_dim=64, T_in=T_in, F_dim=F)
 
     # ── AH-GNN baseline ──
     if variant_name == "baseline_ahgnn":
-        return AH_GNN(
+        graph_model = AH_GNN(
             num_nodes=N,
-            in_channels=in_ch,
+            in_channels=64,
             hidden_channels=64,
             out_channels=T_out,
             embed_dim=32,
             num_time_labels=4,
             num_layers=2,
         )
+        return TemporalGraphWrapper(graph_model, feature_dim=in_ch, hidden_dim=64)
 
     # ── Tôn: Time-conditioned discrete embedding ──
     if variant_name == "zone_full_tc":
-        model = TimeZoneAwareAHGNN(
+        graph_model = TimeZoneAwareAHGNN(
             num_nodes=N,
             num_zones=K,
-            in_channels=in_ch,
+            in_channels=64,
             hidden_channels=64,
             out_channels=T_out,
             node_embed_dim=32,
@@ -302,16 +310,16 @@ def build_model(
             num_time_labels=4,
             num_layers=2,
         )
-        model.use_zone_weight = use_zone_weight
-        model.use_zone_adj = use_zone_adj
-        return model
+        graph_model.use_zone_weight = use_zone_weight
+        graph_model.use_zone_adj = use_zone_adj
+        return TemporalGraphWrapper(graph_model, feature_dim=in_ch, hidden_dim=64)
 
     # ── Bảo: Sinusoidal time encoder ──
     if variant_name == "zone_full_sinc":
-        model = SinusoidalZoneAwareAHGNN(
+        graph_model = SinusoidalZoneAwareAHGNN(
             num_nodes=N,
             num_zones=K,
-            in_channels=in_ch,
+            in_channels=64,
             hidden_channels=64,
             out_channels=T_out,
             node_embed_dim=32,
@@ -320,15 +328,15 @@ def build_model(
             num_layers=2,
             d_model=32,
         )
-        model.use_zone_weight = use_zone_weight
-        model.use_zone_adj = use_zone_adj
-        return model
+        graph_model.use_zone_weight = use_zone_weight
+        graph_model.use_zone_adj = use_zone_adj
+        return TemporalGraphWrapper(graph_model, feature_dim=in_ch, hidden_dim=64)
 
     # ── Zone-Aware ablation variants (zone_concat, zone_weight, zone_full) ──
-    model = ZoneAwareAHGNN(
+    graph_model = ZoneAwareAHGNN(
         num_nodes=N,
         num_zones=K,
-        in_channels=in_ch,
+        in_channels=64,
         hidden_channels=64,
         out_channels=T_out,
         node_embed_dim=32,
@@ -336,13 +344,13 @@ def build_model(
         num_time_labels=4,
         num_layers=2,
     )
-    model.use_zone_weight = use_zone_weight
-    model.use_zone_adj = use_zone_adj
+    graph_model.use_zone_weight = use_zone_weight
+    graph_model.use_zone_adj = use_zone_adj
     if not use_zone_emb:
-        for p in model.zone_emb.parameters():
+        for p in graph_model.zone_emb.parameters():
             p.requires_grad_(False)
             p.data.zero_()
-    return model
+    return TemporalGraphWrapper(graph_model, feature_dim=in_ch, hidden_dim=64)
 
 
 # ──────────────────────────────────────────────
@@ -369,7 +377,8 @@ def set_seed(seed=42):
         torch.backends.cudnn.benchmark = False
 
 
-def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LAMBDA_COS):
+def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LAMBDA_COS,
+                   frozen_splits=None):
     set_seed(42)
     use_zone_emb, use_zone_weight, use_zone_adj = ablation_cfg
 
@@ -381,12 +390,13 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
     print(
         f"  zone_emb={use_zone_emb} | zone_weight={use_zone_weight} | zone_adj={use_zone_adj}"
     )
+
     print(
         f"  cosine_reg={'ON (λ=' + str(effective_lambda_cos) + ')' if effective_lambda_cos > 0 else 'OFF'}"
     )
     print(f"{'='*55}")
 
-    X = dataset_dict["X"]
+    X = unflatten_history(dataset_dict["X"], meta)
     Y = dataset_dict["Y"]
     TL = dataset_dict["time_labels"]
     A = dataset_dict["A"].to(DEVICE)
@@ -396,14 +406,25 @@ def run_experiment(variant_name, meta, dataset_dict, ablation_cfg, lambda_cos=LA
 
     # ── Chronological Split với Purge Gap (Tôn) ─────────────────────────
     purge_gap = meta["T_in"] + meta["T_out"] - 1
-    train_idx, val_idx, test_idx = chronological_split(
-        S, TRAIN_RATIO, VAL_RATIO, purge_gap=purge_gap
-    )
+    if frozen_splits is None:
+        train_idx, val_idx, test_idx = chronological_split(
+            S, TRAIN_RATIO, VAL_RATIO, purge_gap=purge_gap
+        )
+    else:
+        train_idx, val_idx, test_idx = frozen_splits
     print(
         f"  [Split] chrono: train={len(train_idx)} | gap={purge_gap}"
         f" | val={len(val_idx)} | gap={purge_gap} | test={len(test_idx)}"
         f" (bỏ {2 * purge_gap} mẫu purge)"
     )
+
+    if variant_name in NAIVE_BASELINE_NAMES:
+        pred = naive_forecast(variant_name, X, Y, train_idx, test_idx, meta)
+        true = Y[test_idx]
+        metrics = compute_metrics(pred, true)
+        zone_metrics = compute_zone_stratified_metrics(pred, true, Z.cpu(), meta["zone_types"])
+        print(f"  Naive baseline {variant_name}: MAE={metrics['MAE']:.4f} | RMSE={metrics['RMSE']:.4f}")
+        return {**metrics, **zone_metrics, "variant": variant_name, "n_params": 0, "lambda_cos": 0.0}
 
     # ── Z-Score Normalization — fit CHỈ trên train (Tôn) ────────────────
     x_normalizer, y_normalizer, X_norm, Y_norm = fit_normalizers(
@@ -539,7 +560,7 @@ def main():
     parser.add_argument(
         "--variant",
         default="zone_full",
-        choices=list(ABLATION_VARIANTS.keys()) + BASELINE_NAMES,
+        choices=list(ABLATION_VARIANTS.keys()) + BASELINE_NAMES + NAIVE_BASELINE_NAMES,
     )
     parser.add_argument(
         "--lambda-cos",
@@ -552,6 +573,8 @@ def main():
     parser.add_argument("--out-dir", default="data/results",
                         help="Thu muc luu checkpoint va ket qua.")
     parser.add_argument("--epochs", type=int, default=EPOCHS)
+    parser.add_argument("--protocol", default=None,
+                        help="Frozen benchmark_protocol_v1.json; validated against dataset/meta before use.")
     args = parser.parse_args()
 
     data_dir = os.path.abspath(args.data_dir)
@@ -570,6 +593,14 @@ def main():
     with open(META_PATH) as f:
         meta = json.load(f)
 
+    protocol_path = args.protocol or os.path.join(data_dir, "benchmark_protocol_v1.json")
+    frozen_splits = None
+    if os.path.exists(protocol_path):
+        frozen_splits = load_frozen_splits(protocol_path, DATASET_PATH, META_PATH)
+        print(f"  Protocol: frozen chronological split ({protocol_path})")
+    elif args.protocol:
+        raise FileNotFoundError(f"Protocol not found: {protocol_path}")
+
     print(f"  Nodes: {meta['N']} | Zones: {meta['K']} | Features: {meta['F']}")
     print(f"  Samples: {meta['S']} | T_in: {meta['T_in']} | T_out: {meta['T_out']}")
     print(f"  Source: {meta.get('data_source', 'unknown')}")
@@ -579,7 +610,7 @@ def main():
 
     if args.all:
         run_queue = list(ABLATION_VARIANTS.items()) + [
-            (n, (False, False, False)) for n in BASELINE_NAMES
+            (n, (False, False, False)) for n in BASELINE_NAMES + NAIVE_BASELINE_NAMES
         ]
         save_ablation = True
         save_baselines = True
@@ -588,7 +619,7 @@ def main():
         save_ablation = True
         save_baselines = False
     elif args.baselines:
-        run_queue = [(n, (False, False, False)) for n in BASELINE_NAMES]
+        run_queue = [(n, (False, False, False)) for n in BASELINE_NAMES + NAIVE_BASELINE_NAMES]
         save_ablation = False
         save_baselines = True
     else:
@@ -600,7 +631,8 @@ def main():
 
     all_results = []
     for vname, vcfg in run_queue:
-        result = run_experiment(vname, meta, dataset, vcfg, lambda_cos=args.lambda_cos)
+        result = run_experiment(vname, meta, dataset, vcfg, lambda_cos=args.lambda_cos,
+                                frozen_splits=frozen_splits)
         all_results.append(result)
 
     import pandas as pd
