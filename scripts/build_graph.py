@@ -483,6 +483,7 @@ def main():
         "has_traffic": os.path.exists(traffic_path),
         "has_zones": os.path.exists(ZONE_PATH),
         "data_source": data_source,  # "synthetic" | "unknown" | "osrm_proxy"
+        "interval_min": (traffic_meta or {}).get("interval_min"),
         "time_fields": [
             "time_labels (discrete)",
             "hour (0-23)",

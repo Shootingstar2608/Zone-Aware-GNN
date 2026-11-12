@@ -1,0 +1,29 @@
+{
+  "dataset_id": "hcm_sim_v2",
+  "created_at": "2026-11-10T14:18:59.771465+00:00",
+  "git_commit": "4cfc0c33cb08d382e5d9149e54659fcadfe2964f",
+  "data_source": "synthetic",
+  "osrm_path": "data/raw/hcm_osrm_dataset.csv",
+  "osrm_sha256": "eb0edefd98a6eb84355ddbfe8182a63e050671f4a5e35ede3dd86dda28e98dac",
+  "zone_path": "data/raw/zone_labels.csv",
+  "zone_sha256": "b80013ff7a41fe9e15e8c9da0d4e4cabb25fe13c3401fc2ed523cbfd80330ce0",
+  "traffic_path": "data/generated/hcm_sim_v2/hcm_sim_traffic.csv",
+  "traffic_sha256": "412de874a112651a5cac90df55b3b91f3f1929bca9ac19ce779b304c3b997bb6",
+  "traffic_meta": {
+    "data_source": "synthetic",
+    "simulator": "hcm_sim_traffic_generator",
+    "simulator_version": "1.1.0",
+    "seed": 42,
+    "start_time": "2026-10-05 00:00:00",
+    "interval_min": 15,
+    "num_days": 28,
+    "total_steps": 2688,
+    "num_edges": 272,
+    "total_rows": 731136,
+    "generated_at": "2026-11-09T11:07:57.153299+00:00"
+  },
+  "t_in": 12,
+  "t_out": 24,
+  "num_nodes": 17,
+  "num_samples": 2653
+}

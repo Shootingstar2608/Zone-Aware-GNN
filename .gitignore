@@ -21,6 +21,12 @@ env/
 # Data (large files — track with Git LFS or exclude)
 # data/raw/tomtom_traffic.csv
 # data/raw/hcm_osrm_dataset.csv
+# Observed API responses may be large and their redistribution can be restricted
+# by the source terms. Keep the collector/configuration in Git, not raw responses.
+data/raw/tomtom_hcm_segments/
+# Canonical artifacts derived from TomTom remain in the team's controlled
+# storage until the redistribution terms have been reviewed.
+data/processed/hcm_real_tomtom_v1/
 # Data: raw inputs duoc track de clone sach chay duoc ngay (2.9MB + 1.8MB).
 # Chi checkpoint model la khong track.
 
@@ -45,3 +51,10 @@ paper/_minted*/
 
 # Báo cáo LaTeX cục bộ (không đưa Source_Report lên remote)
 Source_Report/
+
+# Ghi chú và tài liệu kế hoạch cục bộ; không thuộc artifact collector.
+docs/Untitled-1
+docs/q3_team_execution_plan.md
+docs/q3_team_execution_plan.docx
+scripts/dev/export_q3_plan_docx.py
+docs/.~lock.*#
