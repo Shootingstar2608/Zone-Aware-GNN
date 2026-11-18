@@ -292,7 +292,10 @@ def train_on_partition(
         # Naive methods make predictions from exactly the same masked history.
         # For the flag strategy, congestion remains channel 0.
         from utils.history import naive_forecast
-        pred_real = naive_forecast(variant, X_masked, Y, train_idx, test_idx, model_meta)
+        pred_real = naive_forecast(
+            variant, X_masked, Y, train_idx, test_idx, model_meta,
+            observed_mask=M,
+        )
         true_real = Y[test_idx]
         test_metrics = compute_metrics(pred_real, true_real)
         zone_metrics = compute_zone_stratified_metrics(pred_real, true_real, Z.cpu(), meta["zone_types"])

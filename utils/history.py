@@ -95,25 +95,45 @@ def mean_by_node_forecast(Y: torch.Tensor, train_idx: list[int], test_idx: list[
 
 
 def seasonal_naive_forecast(
-    Y: torch.Tensor, test_idx: list[int], *, steps_per_day: int, fallback: torch.Tensor
+    Y: torch.Tensor,
+    test_idx: list[int],
+    *,
+    steps_per_day: int,
+    fallback: torch.Tensor,
+    observed_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Use the same forecast window one day earlier, with a causal fallback.
 
-    For a test window s, ``Y[s-steps_per_day]`` lies strictly in the past. If
-    the first test day has no prior-day window, persistence is used instead.
+    For a test window s, ``Y[s-steps_per_day]`` lies strictly in the past.
+    When an observation mask is supplied, only nodes observed at that lag may
+    use the seasonal value; unavailable lagged nodes retain the fallback.
     """
+    if steps_per_day <= 0:
+        raise ValueError("steps_per_day must be positive")
     if fallback.shape != (len(test_idx), Y.shape[1], Y.shape[2]):
         raise ValueError("fallback must align with test prediction shape")
+    if observed_mask is not None and observed_mask.shape != Y.shape[:2]:
+        raise ValueError("observed_mask must have shape (S, N)")
     pred = fallback.clone()
     for out_i, sample_i in enumerate(test_idx):
         lag_i = sample_i - steps_per_day
         if lag_i >= 0:
-            pred[out_i] = Y[lag_i]
+            if observed_mask is None:
+                pred[out_i] = Y[lag_i]
+            else:
+                available = observed_mask[lag_i].to(device=Y.device, dtype=torch.bool)
+                pred[out_i, available] = Y[lag_i, available]
     return pred
 
 
 def naive_forecast(
-    name: str, X: torch.Tensor, Y: torch.Tensor, train_idx: list[int], test_idx: list[int], meta: dict
+    name: str,
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    train_idx: list[int],
+    test_idx: list[int],
+    meta: dict,
+    observed_mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Return one of the mandatory non-learned benchmark references."""
     if name == "persistence":
@@ -127,7 +147,23 @@ def naive_forecast(
         interval_min = int(meta.get("interval_min") or 15)
         if 1440 % interval_min:
             raise ValueError("interval_min must divide one day for seasonal_naive")
+        if observed_mask is not None:
+            if observed_mask.shape != Y.shape[:2]:
+                raise ValueError("observed_mask must have shape (S, N)")
+            train_visible = observed_mask[train_idx].to(device=Y.device, dtype=torch.bool)
+            train_targets = Y[train_idx]
+            visible_sum = (train_targets * train_visible.unsqueeze(-1)).sum(dim=(0, 2))
+            visible_count = train_visible.sum(dim=0) * Y.shape[-1]
+            train_mean = visible_sum / visible_count.clamp_min(1)
+            train_mean[visible_count == 0] = 0
+            for out_i, sample_i in enumerate(test_idx):
+                current_available = observed_mask[sample_i].to(device=Y.device, dtype=torch.bool)
+                fallback[out_i, ~current_available] = train_mean[~current_available].unsqueeze(-1)
         return seasonal_naive_forecast(
-            Y, test_idx, steps_per_day=1440 // interval_min, fallback=fallback
+            Y,
+            test_idx,
+            steps_per_day=1440 // interval_min,
+            fallback=fallback,
+            observed_mask=observed_mask,
         )
     raise ValueError(f"Unknown naive baseline: {name}")

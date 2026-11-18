@@ -461,8 +461,14 @@ def main():
     elif args.protocol:
         raise FileNotFoundError(f"Protocol not found: {protocol_path}")
 
-    # CSV versioned path
-    csv_path = find_versioned_csv(args.out, resume=args.resume)
+    # Honor --out exactly so downstream analysis can consume the documented path.
+    # Refuse silent overwrite; use --resume to continue an interrupted run.
+    csv_path = os.path.abspath(args.out)
+    if os.path.exists(csv_path) and not args.resume:
+        raise SystemExit(
+            f"Output already exists: {csv_path}. Move it aside or pass --resume "
+            "to continue the existing run."
+        )
 
     done = load_done_keys(csv_path) if args.resume else set()
 
