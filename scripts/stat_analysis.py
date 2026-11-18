@@ -69,9 +69,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT_DIR = os.path.join(ROOT, "data", "results")
 RUNS_CSV = os.path.join(OUT_DIR, "multiseed_runs.csv")
 
-DEFAULT_METRICS = ["MAE", "RMSE", "MAPE"]
+DEFAULT_METRICS = ["MAE", "RMSE", "MAPE", "WAPE"]
 DEFAULT_PROPOSED = ["zone_full_tc", "zone_full_sinc"]
-BASELINE_POOL = ["lstm", "gcn_gru", "stgcn"]
+BASELINE_POOL = [
+    "persistence", "mean_by_node", "seasonal_naive",
+    "baseline_ahgnn", "lstm", "gcn_gru", "stgcn",
+]
 
 # Với mọi metric ở đây, GIÁ TRỊ NHỎ HƠN = TỐT HƠN.
 # => improvement = baseline − proposed (dương nghĩa là đề xuất thắng)
