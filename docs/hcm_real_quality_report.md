@@ -30,7 +30,9 @@ Tái lập: build lại trên hai máy khác nhau (Linux và Windows) cho cùng 
 - Retrieval coverage (observed + road_closed): 6,112 / 10,591 = 57.71%.
 - Traffic coverage (chỉ observed): 50.94%.
 
-## 3. Missing theo nguyên nhân
+## 3. Missing
+
+### 3.1. Theo nguyên nhân ghi trong dữ liệu
 
 | missing_reason | Số row |
 |---|---|
@@ -41,7 +43,54 @@ Tái lập: build lại trên hai máy khác nhau (Linux và Windows) cho cùng 
 - `network_error` + `api_timeout` = 246, khớp số lần fail trong `collection_errors.jsonl`.
 - `not_collected`: không có bản ghi nào trong raw lẫn error log cho (giờ, node) đó.
 - Theo snapshot (một mốc giờ): 347 đủ 17 node, 15 thiếu một phần, 261 trống hoàn toàn.
-- Các khoảng trống dài nhất: khoảng 62 giờ đầu kỳ thu (24/10 → 27/10) và khoảng 30 giờ rồi 20 giờ vào 16/11 → 19/11.
+
+### 3.2. Các đoạn thiếu dữ liệu hoàn toàn (cả 17 node, giờ Việt Nam)
+
+| Từ (giờ VN) | Đến (giờ VN) | Số giờ |
+|---|---|---|
+| 2026-10-24 21:00 | 2026-10-27 10:00 | 62 |
+| 2026-10-29 01:00 | 2026-10-29 07:00 | 7 |
+| 2026-10-30 03:00 | 2026-10-30 08:00 | 6 |
+| 2026-10-31 02:00 | 2026-10-31 07:00 | 6 |
+| 2026-11-01 02:00 | 2026-11-01 07:00 | 6 |
+| 2026-11-02 03:00 | 2026-11-02 07:00 | 5 |
+| 2026-11-02 11:00 | 2026-11-02 15:00 | 5 |
+| 2026-11-03 02:00 | 2026-11-03 17:00 | 16 |
+| 2026-11-04 02:00 | 2026-11-04 06:00 | 5 |
+| 2026-11-05 02:00 | 2026-11-05 07:00 | 6 |
+| 2026-11-06 03:00 | 2026-11-06 09:00 | 7 |
+| 2026-11-07 02:00 | 2026-11-07 07:00 | 6 |
+| 2026-11-07 19:00 | 2026-11-07 20:00 | 2 |
+| 2026-11-08 08:00 | 2026-11-08 19:00 | 12 |
+| 2026-11-09 03:00 | 2026-11-09 09:00 | 7 |
+| 2026-11-10 17:00 | 2026-11-10 17:00 | 1 |
+| 2026-11-10 19:00 | 2026-11-10 19:00 | 1 |
+| 2026-11-11 09:00 | 2026-11-11 11:00 | 3 |
+| 2026-11-11 20:00 | 2026-11-11 20:00 | 1 |
+| 2026-11-12 02:00 | 2026-11-12 16:00 | 15 |
+| 2026-11-13 02:00 | 2026-11-13 16:00 | 15 |
+| 2026-11-13 18:00 | 2026-11-13 18:00 | 1 |
+| 2026-11-14 09:00 | 2026-11-14 20:00 | 12 |
+| 2026-11-16 08:00 | 2026-11-16 08:00 | 1 |
+| 2026-11-16 23:00 | 2026-11-17 01:00 | 3 |
+| 2026-11-17 07:00 | 2026-11-18 12:00 | 30 |
+| 2026-11-18 15:00 | 2026-11-19 10:00 | 20 |
+
+Tổng: 261 giờ trống hoàn toàn trên 623 mốc giờ.
+Mỗi thời điểm là giờ bắt đầu của mốc giờ, tính cả hai đầu.
+
+### 3.3. Các giờ thiếu một phần (một số node thiếu)
+
+- 2026-10-27 22:00 → 2026-10-27 23:00 (2 giờ)
+- 2026-10-28 20:00 → 2026-10-28 22:00 (3 giờ)
+- 2026-11-02 22:00 → 2026-11-02 22:00 (1 giờ)
+- 2026-11-03 21:00 → 2026-11-03 22:00 (2 giờ)
+- 2026-11-04 21:00 → 2026-11-04 22:00 (2 giờ)
+- 2026-11-09 20:00 → 2026-11-09 22:00 (3 giờ)
+- 2026-11-12 21:00 → 2026-11-12 21:00 (1 giờ)
+- 2026-11-12 23:00 → 2026-11-12 23:00 (1 giờ)
+
+Tổng: 15 giờ.
 
 ## 4. Theo node
 
@@ -65,7 +114,43 @@ Tái lập: build lại trên hai máy khác nhau (Linux và Windows) cho cùng 
 | thu_thiem_tunnel | 362 | 0 | 261 |
 | vnu_hcm | 362 | 0 | 261 |
 
-## 5. Kiểm tra chất lượng đã chạy
+## 5. Tính liên tục của chuỗi thời gian
+
+Một giờ được tính là "đủ" khi cả 15 node có số liệu tốc độ (loại hai node `ben_thanh_market` và `district_1` vì luôn ở trạng thái road_closed) đều ở trạng thái observed.
+
+| Chỉ số | Giá trị |
+|---|---|
+| Số giờ đủ 15 node | 349 / 623 (56.0%) |
+| Số đoạn liên tục | 36 |
+| Đoạn liên tục dài nhất | 35 giờ |
+| 5 đoạn dài nhất (giờ) | 35, 21, 19, 19, 19 |
+| Số cửa sổ trượt 36 giờ liên tục (T_in = 12, T_out = 24) | **0** |
+
+Với cấu hình cửa sổ 12 giờ đầu vào và 24 giờ dự báo, bản pilot này không có cửa sổ nào đủ dữ liệu liên tục.
+
+## 6. Coverage theo giờ trong ngày (giờ Việt Nam)
+
+Tỷ lệ cặp (giờ, node) có bản ghi (observed hoặc road_closed), trên toàn bộ 17 node.
+
+| Giờ | Coverage | Giờ | Coverage |
+|---|---|---|---|
+| 00h | 77% | 12h | 62% |
+| 01h | 73% | 13h | 65% |
+| 02h | 46% | 14h | 65% |
+| 03h | 31% | 15h | 62% |
+| 04h | 31% | 16h | 65% |
+| 05h | 31% | 17h | 69% |
+| 06h | 31% | 18h | 72% |
+| 07h | 31% | 19h | 69% |
+| 08h | 46% | 20h | 73% |
+| 09h | 46% | 21h | 78% |
+| 10h | 54% | 22h | 76% |
+| 11h | 58% | 23h | 76% |
+
+Coverage thấp nhất ở khoảng 02h–09h (thấp nhất 31% ở 03h–07h) và cao nhất ở khoảng 21h–00h.
+Trong mục 3.2, từ 29/10 đến 9/11 hầu như mỗi đêm có một đoạn trống 5–7 giờ trong khoảng 01h–09h.
+
+## 7. Kiểm tra chất lượng đã chạy
 
 - Không có cặp (timestamp, node) trùng trong canonical. Raw có 34 cặp trùng, đã gộp và gắn cờ `duplicate_observation`.
 - Mọi mốc thời gian tròn giờ.
@@ -74,15 +159,19 @@ Tái lập: build lại trên hai máy khác nhau (Linux và Windows) cho cùng 
 - Confidence: nhỏ nhất 0.536, trung bình 0.990; không row nào dưới ngưỡng 0.5.
 - 3 file test HCM-Real: 21 passed.
 
-## 6. Phát hiện cần lưu ý
+## 8. Phát hiện cần lưu ý
 
-1. **Coverage chỉ ~51%**, chủ yếu do không có bản ghi thu thập (not_collected), không phải do lỗi API. Missing gần như đều nhau giữa các node (261–266 row/node), tức các giờ thiếu là chung cho cả 17 node.
-2. **`ben_thanh_market` và `district_1` có road_closure = True ở mọi row quan sát được**, nên canonical không có row observed nào cho hai node này. Trong raw, hai node này vẫn có tốc độ khác 0 (ví dụ 23 và 16 km/h) khi cờ đóng đường bật. Chưa rõ nguyên nhân; cần kiểm tra segment/OpenLR đã approved. Registry không bị thay đổi trong bản build này.
-3. Chỉ **15/17 node** có số liệu tốc độ dùng được.
-4. `suoi_tien` có 1 row road_closed đơn lẻ.
-5. Cờ zone OSM (bán kính 800 m) bật gần hết 8 loại ở nhiều node nên khả năng phân biệt node yếu.
+1. **Coverage chỉ ~51%**, chủ yếu do không có bản ghi thu thập (not_collected), không phải do lỗi API.
+   Missing gần như đều nhau giữa các node (261–266 row/node), tức các giờ thiếu là chung cho cả 17 node.
+   Chi tiết các đoạn thiếu xem mục 3.
+2. **Không có cửa sổ 36 giờ liên tục** (đoạn dài nhất 35 giờ), nên cấu hình T_in = 12, T_out = 24 chưa áp dụng được trên bản pilot này (mục 5).
+3. **Coverage lệch theo giờ trong ngày**: thấp nhất ở 02h–09h (31–46%), nên giờ cao điểm sáng đang bị thiếu nhiều hơn các giờ khác (mục 6).
+4. **`ben_thanh_market` và `district_1` có road_closure = True ở mọi row quan sát được**, nên canonical không có row observed nào cho hai node này. Trong raw, hai node này vẫn có tốc độ khác 0 (ví dụ 23 và 16 km/h) khi cờ đóng đường bật. Chưa rõ nguyên nhân; cần kiểm tra segment/OpenLR đã approved. Registry không bị thay đổi trong bản build này.
+5. Chỉ **15/17 node** có số liệu tốc độ dùng được.
+6. `suoi_tien` có 1 row road_closed đơn lẻ.
+7. Cờ zone OSM (bán kính 800 m) bật gần hết 8 loại ở nhiều node nên khả năng phân biệt node yếu.
 
-## 7. Giới hạn
+## 9. Giới hạn
 
 - Đây là bản pilot (khoảng 26 ngày, chưa đủ mục tiêu 28 ngày liên tục).
 - Dữ liệu canonical và raw TomTom không đưa vào Git vì chưa duyệt điều khoản phân phối lại.
