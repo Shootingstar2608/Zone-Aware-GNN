@@ -117,6 +117,7 @@ Tổng: 15 giờ.
 ## 5. Tính liên tục của chuỗi thời gian
 
 Một giờ được tính là "đủ" khi cả 15 node có số liệu tốc độ (loại hai node `ben_thanh_market` và `district_1` vì luôn ở trạng thái road_closed) đều ở trạng thái observed.
+Đây là định nghĩa chặt: mọi giờ trong cửa sổ đều đủ 15 node, không nội suy và không dùng mask.
 
 | Chỉ số | Giá trị |
 |---|---|
@@ -161,12 +162,12 @@ Trong mục 3.2, từ 29/10 đến 9/11 hầu như mỗi đêm có một đoạn
 
 ## 8. Phát hiện cần lưu ý
 
-1. **Coverage chỉ ~51%**, chủ yếu do không có bản ghi thu thập (not_collected), không phải do lỗi API.
+1. **Coverage chỉ ~51%**, chủ yếu là các giờ không có bản ghi thu thập (not_collected). Log lỗi chỉ ghi nhận 246 lần fail.
    Missing gần như đều nhau giữa các node (261–266 row/node), tức các giờ thiếu là chung cho cả 17 node.
-   Chi tiết các đoạn thiếu xem mục 3.
+   Chi tiết xem mục 3.
 2. **Không có cửa sổ 36 giờ liên tục** (đoạn dài nhất 35 giờ), nên cấu hình T_in = 12, T_out = 24 chưa áp dụng được trên bản pilot này (mục 5).
 3. **Coverage lệch theo giờ trong ngày**: thấp nhất ở 02h–09h (31–46%), nên giờ cao điểm sáng đang bị thiếu nhiều hơn các giờ khác (mục 6).
-4. **`ben_thanh_market` và `district_1` có road_closure = True ở mọi row quan sát được**, nên canonical không có row observed nào cho hai node này. Trong raw, hai node này vẫn có tốc độ khác 0 (ví dụ 23 và 16 km/h) khi cờ đóng đường bật. Chưa rõ nguyên nhân; cần kiểm tra segment/OpenLR đã approved. Registry không bị thay đổi trong bản build này.
+4. **`ben_thanh_market` và `district_1` có road_closure = True ở mọi row quan sát được**, nên canonical không có row observed nào cho hai node này. Trong raw, hai node này vẫn có tốc độ khác 0 (ví dụ 23 và 16 km/h) khi cờ đóng đường bật. Chưa rõ nguyên nhân; người phụ trách thu thập đang kiểm tra lại segment/OpenLR. Registry không bị thay đổi trong bản build này.
 5. Chỉ **15/17 node** có số liệu tốc độ dùng được.
 6. `suoi_tien` có 1 row road_closed đơn lẻ.
 7. Cờ zone OSM (bán kính 800 m) bật gần hết 8 loại ở nhiều node nên khả năng phân biệt node yếu.
@@ -174,4 +175,3 @@ Trong mục 3.2, từ 29/10 đến 9/11 hầu như mỗi đêm có một đoạn
 ## 9. Giới hạn
 
 - Đây là bản pilot (khoảng 26 ngày, chưa đủ mục tiêu 28 ngày liên tục).
-- Dữ liệu canonical và raw TomTom không đưa vào Git vì chưa duyệt điều khoản phân phối lại.
