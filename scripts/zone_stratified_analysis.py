@@ -170,7 +170,8 @@ def evaluate_zone_stratified(variant, ckpt, dataset, meta):
     model=build_model_factory(variant,meta,use_emb,use_w,use_a)
     model.load_state_dict(torch.load(ckpt,map_location="cpu",weights_only=False))
     model.eval()
-    X,Y,TL,Z,A = dataset["X"],dataset["Y"],dataset["time_labels"],dataset["Z"],dataset["A"]
+    from utils.history import unflatten_history
+    X,Y,TL,Z,A = unflatten_history(dataset["X"], meta),dataset["Y"],dataset["time_labels"],dataset["Z"],dataset["A"]
     from torch.utils.data import TensorDataset, Subset
     from scripts.train import chronological_split, PURGE_GAP_DEFAULT
     from utils.normalizer import ZScoreNormalizer

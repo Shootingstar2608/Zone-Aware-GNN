@@ -87,6 +87,7 @@ sys.path.insert(0, os.path.join(ROOT, "scripts"))
 from scripts.train import (  # noqa: E402
     ABLATION_VARIANTS,
     BASELINE_NAMES,
+    NAIVE_BASELINE_NAMES,
     BATCH_SIZE,
     EPOCHS,
     LR,
@@ -105,6 +106,8 @@ from utils.eval_protocol import (  # noqa: E402
     TRAIN_RATIO,
     VAL_RATIO,
 )
+from utils.history import naive_forecast, unflatten_history  # noqa: E402
+from utils.benchmark_protocol import load_frozen_splits  # noqa: E402
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -118,9 +121,9 @@ SPLIT_MODES = ["random_fixed", "random_paired", "chrono"]
 
 # Nhóm model để tiện chọn nhanh
 MODEL_GROUPS = {
-    "all": list(ABLATION_VARIANTS.keys()) + BASELINE_NAMES,
+    "all": list(ABLATION_VARIANTS.keys()) + BASELINE_NAMES + NAIVE_BASELINE_NAMES,
     "proposed": ["zone_full_tc", "zone_full_sinc", "zone_full", "gcn_gru"],
-    "baselines": BASELINE_NAMES,
+    "baselines": BASELINE_NAMES + NAIVE_BASELINE_NAMES,
     "ablation": list(ABLATION_VARIANTS.keys()),
 }
 
@@ -131,7 +134,7 @@ RUN_KEY = ["variant", "seed", "split_mode"]
 # ══════════════════════════════════════════════════════════════
 # CHIA DỮ LIỆU
 # ══════════════════════════════════════════════════════════════
-def make_splits(full_ds, S: int, split_mode: str, seed: int, meta: dict):
+def make_splits(full_ds, S: int, split_mode: str, seed: int, meta: dict, frozen_splits=None):
     """
     Trả về (train_idx, val_idx, test_idx, split_seed_used).
 
@@ -151,6 +154,8 @@ def make_splits(full_ds, S: int, split_mode: str, seed: int, meta: dict):
     #  PIPELINE «CLEAN» — DÙNG CHO BÁO CÁO PAPER
     # ══════════════════════════════════════════════════════════════════
     if split_mode == "chrono":
+        if frozen_splits is not None:
+            return (*frozen_splits, None)
         purge_gap = meta["T_in"] + meta["T_out"] - 1
         train_idx, val_idx, test_idx = chronological_split(
             S, TRAIN_RATIO, VAL_RATIO, purge_gap=purge_gap
@@ -190,6 +195,7 @@ def run_once(
     epochs: int,
     save_checkpoint: bool,
     verbose: bool = False,
+    frozen_splits=None,
 ) -> dict:
     """Huấn luyện 1 model với 1 seed, trả về dict metrics trên test set."""
     t0 = time.time()
@@ -200,7 +206,7 @@ def run_once(
     cfg = ABLATION_VARIANTS.get(variant, (False, False, False))
     use_zone_emb, use_zone_weight, use_zone_adj = cfg
 
-    X, Y, TL = dataset["X"], dataset["Y"], dataset["time_labels"]
+    X, Y, TL = unflatten_history(dataset["X"], meta), dataset["Y"], dataset["time_labels"]
     A = dataset["A"].to(DEVICE)
     Z = dataset["Z"].to(DEVICE)
     S = X.size(0)
@@ -208,13 +214,26 @@ def run_once(
     # ── Split (trả về index để fit normalizer đúng trước) ──────────────────
     full_ds = TensorDataset(X, Y, TL)
     train_idx, val_idx, test_idx, split_seed = make_splits(
-        full_ds, S, split_mode, seed, meta
+        full_ds, S, split_mode, seed, meta, frozen_splits=frozen_splits
     )
 
     # ── Z-Score Normalization — fit CHỈ trên train_idx ───────────────────
     x_normalizer, y_normalizer, X_norm, Y_norm = fit_normalizers(
         X, Y, train_idx
     )
+
+    if variant in NAIVE_BASELINE_NAMES:
+        pred = naive_forecast(variant, X, Y, train_idx, test_idx, meta)
+        metrics = compute_metrics(pred, Y[test_idx])
+        zone_metrics = compute_zone_stratified_metrics(pred, Y[test_idx], Z.cpu(), meta["zone_types"])
+        return {
+            "variant": variant, "seed": seed, "split_mode": split_mode,
+            "split_seed": split_seed if split_seed is not None else -1,
+            **metrics, **zone_metrics, "best_val_MAE": float("nan"),
+            "epochs_run": 0, "n_params": 0, "train_time_s": 0.0,
+            "device": "none", "status": "ok", "commit": get_git_commit_hash(),
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+        }
 
     full_ds_norm = TensorDataset(X_norm, Y_norm, TL)
     train_ds = Subset(full_ds_norm, train_idx)
@@ -397,6 +416,8 @@ def main():
     )
     p.add_argument("--save-checkpoints", action="store_true")
     p.add_argument("--verbose", action="store_true")
+    p.add_argument("--protocol", default=None,
+                   help="Frozen benchmark_protocol_v1.json used for chrono mode.")
     args = p.parse_args()
 
     data_dir = os.path.abspath(args.data_dir)
@@ -421,7 +442,7 @@ def main():
     seen = set()
     variants = [v for v in variants if not (v in seen or seen.add(v))]
 
-    valid = set(ABLATION_VARIANTS) | set(BASELINE_NAMES)
+    valid = set(ABLATION_VARIANTS) | set(BASELINE_NAMES) | set(NAIVE_BASELINE_NAMES)
     unknown = [v for v in variants if v not in valid]
     if unknown:
         raise SystemExit(f"❌ Model không tồn tại: {unknown}\n   Hợp lệ: {sorted(valid)}")
@@ -432,6 +453,13 @@ def main():
     dataset = torch.load(DATASET_PATH, weights_only=False)
     with open(META_PATH, encoding="utf-8") as f:
         meta = json.load(f)
+    protocol_path = args.protocol or os.path.join(data_dir, "benchmark_protocol_v1.json")
+    frozen_splits = None
+    if os.path.exists(protocol_path):
+        frozen_splits = load_frozen_splits(protocol_path, DATASET_PATH, META_PATH)
+        print(f"  Protocol    : frozen chronological split ({protocol_path})")
+    elif args.protocol:
+        raise FileNotFoundError(f"Protocol not found: {protocol_path}")
 
     # CSV versioned path
     csv_path = find_versioned_csv(args.out, resume=args.resume)
@@ -481,6 +509,7 @@ def main():
                 args.epochs,
                 args.save_checkpoints,
                 args.verbose,
+                frozen_splits,
             )
             print(
                 f"          MAE={row['MAE']:.4f}  RMSE={row['RMSE']:.4f}"

@@ -1,0 +1,13 @@
+{
+  "data_source": "synthetic",
+  "simulator": "hcm_sim_traffic_generator",
+  "simulator_version": "1.1.0",
+  "seed": 42,
+  "start_time": "2026-10-05 00:00:00",
+  "interval_min": 15,
+  "num_days": 28,
+  "total_steps": 2688,
+  "num_edges": 272,
+  "total_rows": 731136,
+  "generated_at": "2026-11-09T11:07:57.153299+00:00"
+}

@@ -1,11 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import MessagePassing
 
-class AdaptiveGraphConvolution(MessagePassing):
+class AdaptiveGraphConvolution(nn.Module):
     def __init__(self, in_channels, out_channels, num_nodes, embed_dim, num_time_labels):
-        super(AdaptiveGraphConvolution, self).__init__(aggr='add') # "Add" aggregation
+        super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.num_nodes = num_nodes

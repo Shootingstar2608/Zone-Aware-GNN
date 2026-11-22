@@ -57,8 +57,19 @@ def main():
         sc = rec["scenario"]
 
         if sc == "quantity_skew":
+            # ``block_len`` was added to the serialized parameter schema after
+            # the first HCM-Sim v1 quantity-skew artifact was produced.  That
+            # artifact used the generator default (1), so retain it as an
+            # explicit compatibility default rather than failing verification
+            # of an otherwise reproducible historical partition.
+            block_len = p.get("block_len", 1)
+            if "block_len" not in p:
+                print(
+                    f"  ⚠️  {pid}: legacy partition without block_len; "
+                    "verifying with historical default block_len=1"
+                )
             mask, _ = pg.quantity_skew(S, N, alpha=p["alpha"], seed=seed,
-                                    block_len=p["block_len"], mode=p["mode"],
+                                    block_len=block_len, mode=p["mode"],
                                     c_bar=p["c_bar"])
             checked["mask"] += 1
             if pg.mask_hash(mask) != rec["mask_hash"]:

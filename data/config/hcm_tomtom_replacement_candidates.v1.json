@@ -1,0 +1,53 @@
+{
+  "description": "Candidate anchors for replacing duplicate HCM-Real TomTom segments. These are probes only; they do not alter the final 17-node registry.",
+  "candidates": [
+    {
+      "candidate_id": "binh_thanh_no_trang_long_a",
+      "replace_node_id": "binh_thanh",
+      "lat": 10.8019,
+      "lon": 106.6947,
+      "target_road_name": "Nơ Trang Long",
+      "selection_note": "Bình Thạnh north-west corridor; probe before adopting."
+    },
+    {
+      "candidate_id": "binh_thanh_nguyen_xi_a",
+      "replace_node_id": "binh_thanh",
+      "lat": 10.8158,
+      "lon": 106.7048,
+      "target_road_name": "Nguyễn Xí",
+      "selection_note": "Bình Thạnh local arterial; probe before adopting."
+    },
+    {
+      "candidate_id": "thu_duc_kha_van_can_a",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8486,
+      "lon": 106.7620,
+      "target_road_name": "Kha Vạn Cân",
+      "selection_note": "Central Thủ Đức candidate distinct from Xa lộ Hà Nội."
+    },
+    {
+      "candidate_id": "thu_duc_le_van_chi_a",
+      "replace_node_id": "thu_duc",
+      "lat": 10.8533,
+      "lon": 106.7742,
+      "target_road_name": "Lê Văn Chí",
+      "selection_note": "Thủ Đức university/industrial connector candidate."
+    },
+    {
+      "candidate_id": "linh_trung_hoang_cam_a",
+      "replace_node_id": "linh_trung",
+      "lat": 10.8700,
+      "lon": 106.7885,
+      "target_road_name": "Hoàng Cầm",
+      "selection_note": "Linh Trung area candidate; must not map to the VNU segment."
+    },
+    {
+      "candidate_id": "linh_trung_le_van_chi_a",
+      "replace_node_id": "linh_trung",
+      "lat": 10.8630,
+      "lon": 106.7800,
+      "target_road_name": "Lê Văn Chí",
+      "selection_note": "Alternative Linh Trung connector candidate."
+    }
+  ]
+}

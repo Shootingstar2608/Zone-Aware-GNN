@@ -52,14 +52,17 @@ class LSTMBaseline(nn.Module):
 
     def forward(self, X, Z=None, time_idx=None, A_static=None):
         """
-        X: (B, N, in_channels) — đã flatten time vào feature dim
+        X: (B, N, T_in, F) — trục thời gian được giữ nguyên
         → out: (B, N, out_channels)
         """
-        B, N, F_in = X.shape
-        # (B, N*F_in) → unsqueeze thành (B, 1, N*F_in) cho LSTM
-        x = X.reshape(B, 1, N * F_in)
-        h, _ = self.lstm(x)  # (B, 1, hidden_dim)
-        out = self.fc(h[:, -1, :])  # (B, N * out_channels)
+        if X.ndim != 4:
+            raise ValueError("LSTMBaseline expects X=(B,N,T_in,F), not flattened history")
+        B, N, T, F_in = X.shape
+        if F_in * N != self.lstm.input_size:
+            raise ValueError("LSTM feature/node configuration does not match X")
+        # One city-level sequence per batch: each timestep contains all nodes.
+        h, _ = self.lstm(X.reshape(B, T, N * F_in))
+        out = self.fc(h[:, -1, :])
         return out.view(B, N, self.out_channels)
 
 
@@ -117,11 +120,13 @@ class GCNGRUBaseline(nn.Module):
 
     def forward(self, X, Z=None, time_idx=None, A_static=None):
         """
-        X:        (B, N, in_channels)
+        X:        (B, N, T_in, F)
         A_static: (N, N) OSRM adjacency — cố định, không adaptive
         → out:    (B, N, out_channels)
         """
-        B, N, _ = X.shape
+        if X.ndim != 4:
+            raise ValueError("GCNGRUBaseline expects X=(B,N,T_in,F), not flattened history")
+        B, N, T, F_in = X.shape
 
         # Nếu không có A_static thì dùng identity
         if A_static is None:
@@ -129,13 +134,13 @@ class GCNGRUBaseline(nn.Module):
         else:
             A = A_static
 
-        # Spatial convolution (2 layers GCN)
-        h = self.gcn1(X, A)  # (B, N, hidden_dim)
+        # Apply the shared spatial encoder at every genuine timestep.
+        h = X.permute(0, 2, 1, 3).reshape(B * T, N, F_in)
+        h = self.gcn1(h, A)
         h = self.gcn2(h, A)  # (B, N, hidden_dim)
-
-        # Temporal: GRU per node
-        # (B, N, hidden) → (B*N, 1, hidden) → GRU → (B*N, 1, hidden) → (B, N, hidden)
-        h_r = h.reshape(B * N, 1, self.hidden_dim)
+        h = h.reshape(B, T, N, self.hidden_dim).permute(0, 2, 1, 3)
+        # GRU scans T_in steps independently for every node.
+        h_r = h.reshape(B * N, T, self.hidden_dim)
         h_gru, _ = self.gru(h_r)
         h_out = h_gru[:, -1, :].reshape(B, N, self.hidden_dim)
 
@@ -212,24 +217,20 @@ class STGCNBaseline(nn.Module):
 
     def forward(self, X, Z=None, time_idx=None, A_static=None):
         """
-        X:        (B, N, T_in*F_dim)  — sẽ được reshape lại thành (B, N, T_in, F_dim)
+        X:        (B, N, T_in, F_dim)
         A_static: (N, N) OSRM adjacency — cố định
         → out:    (B, N, out_channels)
         """
-        B, N, C = X.shape
-        assert C == self.T_in * self.F_dim, (
-            f"X có in_channels={C} nhưng model được khởi tạo với "
-            f"T_in={self.T_in}, F_dim={self.F_dim} (tích={self.T_in * self.F_dim})."
-        )
+        if X.ndim != 4:
+            raise ValueError("STGCNBaseline expects X=(B,N,T_in,F), not flattened history")
+        B, N, T, F_dim = X.shape
+        if (T, F_dim) != (self.T_in, self.F_dim):
+            raise ValueError(f"X time/feature shape {(T, F_dim)} != {(self.T_in, self.F_dim)}")
 
         if A_static is None:
             A = torch.eye(N, device=X.device)
         else:
             A = A_static
-
-        # ── Khôi phục chiều thời gian thật ──
-        # (B, N, T_in*F_dim) → (B, N, T_in, F_dim)
-        X = X.view(B, N, self.T_in, self.F_dim)
 
         # Project feature F_dim → hidden_dim tại mỗi bước thời gian
         h = self.input_proj(X)  # (B, N, T_in, hidden)
