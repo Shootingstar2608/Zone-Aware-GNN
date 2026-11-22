@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HCMRealCanonicalTrafficRecord",
+  "description": "JSON Schema chuẩn hóa cho tập dữ liệu HCM-Real Canonical (20 thuộc tính).",
+  "type": "object",
+  "required": [
+    "timestamp_utc",
+    "timestamp_local",
+    "node_id",
+    "segment_id",
+    "approved_openlr",
+    "source",
+    "segment_length_m",
+    "time_label",
+    "confidence",
+    "road_closure",
+    "is_missing",
+    "missing_reason",
+    "quality_flag",
+    "dataset_version"
+  ],
+  "properties": {
+    "timestamp_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Mốc thời gian theo giờ chuẩn quốc tế UTC (ISO 8601, kết thúc bằng Z hoặc +00:00)."
+    },
+    "timestamp_local": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Mốc thời gian quy đổi sang giờ địa phương TP.HCM (+07:00)."
+    },
+    "node_id": {
+      "type": "string",
+      "description": "Định danh nút giao/trạm quan sát thuộc registry 17 segments."
+    },
+    "segment_id": {
+      "type": "string",
+      "description": "Mã đoạn đường TomTom API."
+    },
+    "approved_openlr": {
+      "type": "string",
+      "description": "Chuỗi mã hóa vị trí theo chuẩn TomTom OpenLR Binary Base64."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["tomtom_flow_segment_api"]
+    },
+    "current_speed_kmh": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 200.0,
+      "description": "Vận tốc quan sát thực tế trung bình (km/h)."
+    },
+    "free_flow_speed_kmh": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "maximum": 150.0,
+      "description": "Vận tốc lý thuyết khi đường hoàn toàn thông thoáng (km/h)."
+    },
+    "current_travel_time_s": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "description": "Thời gian hành trình thực tế đi qua đoạn đường (giây)."
+    },
+    "free_flow_travel_time_s": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "description": "Thời gian hành trình lý tưởng (giây)."
+    },
+    "congestion_ratio": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "description": "Tỷ số tắc nghẽn T_curr / T_ff (có thể > 1.0 khi tắc đường; null khi T_ff=0)."
+    },
+    "traffic_delay_s": {
+      "type": ["number", "null"],
+      "minimum": 0.0,
+      "description": "Thời gian trễ do kẹt xe max(0, T_curr - T_ff)."
+    },
+    "segment_length_m": {
+      "type": "number",
+      "minimum": 10.0,
+      "description": "Chiều dài đoạn đường giám sát (mét)."
+    },
+    "time_label": {
+      "type": "string",
+      "enum": ["night", "rush_morning", "rush_evening", "normal"],
+      "description": "Nhãn khung giờ đồng bộ với kịch bản mô phỏng."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "Độ tin cậy của phép đo từ nhà cung cấp TomTom (0.0 đến 1.0)."
+    },
+    "road_closure": {
+      "type": "boolean",
+      "description": "Cờ chỉ báo đoạn đường bị đóng/chặn lưu thông. Khi road_closure=True: is_missing=True, current_speed_kmh=0.0, current_travel_time_s=NaN, congestion_ratio=NaN, missing_reason='ROAD_CLOSURE'."
+    },
+    "is_missing": {
+      "type": "boolean",
+      "description": "Cờ đánh dấu khung giờ bị thiếu dữ liệu quan sát. Khi is_missing=False: road_closure=False và toàn bộ 8 trường số học giao thông bắt buộc là số hữu hạn (không null, NaN, Inf)."
+    },
+    "missing_reason": {
+      "type": "string",
+      "enum": ["NONE", "API_ERROR", "NOT_COLLECTED", "ROAD_CLOSURE", "LOW_CONFIDENCE"],
+      "description": "Lý do thiếu dữ liệu theo §4.2."
+    },
+    "quality_flag": {
+      "type": "string",
+      "enum": [
+        "VALID",
+        "VALID_LOW_CONFIDENCE",
+        "ANOMALY_FREE_FLOW_ZERO",
+        "ANOMALY_FASTER_THAN_FREE_FLOW",
+        "ROAD_CLOSURE",
+        "MISSING_API_ERROR",
+        "MISSING_NOT_COLLECTED",
+        "DUPLICATE_FLAGGED"
+      ],
+      "description": "Cờ phân loại chất lượng dữ liệu."
+    },
+    "dataset_version": {
+      "type": "string",
+      "description": "Phiên bản dataset (ví dụ hcm_real_v1.0)."
+    }
+  }
+}
+
