@@ -1,14 +1,14 @@
 {
   "dataset_id": "hcm_sim_v1",
-  "created_at": "2026-10-01T13:32:02.343019+00:00",
-  "git_commit": "a66f3bb0faeddddbf7fa71c319be7189ce2cdbf1",
+  "created_at": "2026-09-20T06:34:03.174993+00:00",
+  "git_commit": "74a83df7078ebce40173983cb2fa378a5bb9e0fb",
   "data_source": "synthetic",
   "osrm_path": "data/raw/hcm_osrm_dataset.csv",
-  "osrm_sha256": "eb0edefd98a6eb84355ddbfe8182a63e050671f4a5e35ede3dd86dda28e98dac",
+  "osrm_sha256": "f6a69bad3ee24c913450a32e49c0aff7bea9cbb3231933b2a17faa36a8b80027",
   "zone_path": "data/raw/zone_labels.csv",
-  "zone_sha256": "b80013ff7a41fe9e15e8c9da0d4e4cabb25fe13c3401fc2ed523cbfd80330ce0",
-  "traffic_path": "data/generated/hcm_sim_v1/hcm_sim_traffic.csv",
-  "traffic_sha256": "6473c4429e5311a21da9b337d91f502904e238340dd3739e63d84dc01e531a53",
+  "zone_sha256": "53fe65d7bc9090b709739f4b0e9b0e5c6b2ef350eb9c65eb167c4c73847c969b",
+  "traffic_path": "data/raw/hcm_sim_traffic.csv",
+  "traffic_sha256": "f8d3f24a302a563e40c71fd5a4a8875d42851c21c38f338447ffbf8a69aaf0fb",
   "traffic_meta": {
     "data_source": "synthetic",
     "simulator": "hcm_sim_traffic_generator",
@@ -20,10 +20,10 @@
     "total_steps": 672,
     "num_edges": 272,
     "total_rows": 182784,
-    "generated_at": "2026-10-01T13:31:54.252300+00:00"
+    "generated_at": "2026-09-20T06:33:38.281813+00:00"
   },
   "t_in": 12,
-  "t_out": 24,
+  "t_out": 3,
   "num_nodes": 17,
-  "num_samples": 637
+  "num_samples": 658
 }
